@@ -768,7 +768,123 @@ body {
     border-radius: var(--radius-sm);
 }
 .badge-recomendacion i { font-size: 14px; }
+/* Boton Entrevista & General overrides */
+.nav-item[data-tab="entrevista"] span {
+    font-size: 10px; /* Text fits */
+}
 
+/* === Formato Primera Entrevista Styles === */
+.entrevista-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 40px;
+}
+
+.form-block {
+    padding: 0;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.form-block-header {
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 800;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.form-block-header i { font-size: 24px; }
+.form-block-header.green { background: var(--green); }
+.form-block-header.orange { background: var(--orange); }
+.form-block-header.blue { background: var(--blue); }
+.form-block-header.purple { background: var(--purple); }
+
+.form-grid {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+}
+.form-grid:last-child {
+    border-bottom: none;
+}
+.form-grid.info-grid {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+}
+.form-grid.full-width {
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.input-group label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.input-group input, .input-group select, .input-group textarea {
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-main);
+    background: #f9f9f9;
+    transition: all 0.2s;
+}
+.input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+    border-color: var(--blue);
+    background: #ffffff;
+    outline: none;
+}
+.input-group input:disabled {
+    background: #eee;
+    color: var(--text-muted);
+}
+
+.question-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.question-row > label {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
+}
+.radio-group {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.radio-group label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+}
+.radio-group input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--blue);
+}
+.radio-group input[type="text"] {
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    min-width: 200px;
+}
 .sft-list .med-item {
     padding: 16px 20px;
     border-bottom: 2px solid var(--border);

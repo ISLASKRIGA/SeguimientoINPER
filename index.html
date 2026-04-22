@@ -272,6 +272,172 @@
                 </div>
             </div>
 
+            <!-- FORMATO PRIMERA ENTREVISTA (From Excel) -->
+            <div id="view-entrevista" class="view-section">
+                <div class="header-section">
+                    <h2>1era Entrevista SFT</h2>
+                    <p class="subtitle">Apertura de expediente y valoración inicial</p>
+                </div>
+
+                <form class="entrevista-form">
+                    <!-- 1. Datos Generales -->
+                    <div class="card form-block">
+                        <div class="form-block-header green">
+                            <i class="ph-bold ph-user-circle"></i> Datos Generales
+                        </div>
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Expediente</label>
+                                <input type="text" placeholder="Ej. INP-2024-XXXX">
+                            </div>
+                            <div class="input-group">
+                                <label>Fecha Apertura</label>
+                                <input type="date">
+                            </div>
+                            <div class="input-group">
+                                <label>Servicio / Turno</label>
+                                <input type="text" placeholder="Ej. 5to Piso Cirugía - Matutino">
+                            </div>
+                            <div class="input-group">
+                                <label>Proviene de Hospitalización</label>
+                                <select><option>Sí</option><option>No</option></select>
+                            </div>
+                        </div>
+                        <div class="form-grid info-grid">
+                            <div class="input-group">
+                                <label>Sexo</label>
+                                <select><option>Femenino</option><option>Masculino</option></select>
+                            </div>
+                            <div class="input-group">
+                                <label>Peso (kg)</label>
+                                <input type="number" step="0.1">
+                            </div>
+                            <div class="input-group">
+                                <label>Talla (cm)</label>
+                                <input type="number" step="1">
+                            </div>
+                            <div class="input-group">
+                                <label>IMC</label>
+                                <input type="text" disabled placeholder="Calculado auto.">
+                            </div>
+                        </div>
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Embarazo</label>
+                                <select><option>No</option><option>Sí</option></select>
+                            </div>
+                            <div class="input-group">
+                                <label>Semanas de Emb.</label>
+                                <input type="number" placeholder="Opcional">
+                            </div>
+                            <div class="input-group" style="grid-column: span 2;">
+                                <label>Alergias</label>
+                                <input type="text" placeholder="Especificar alergias a mdtos.">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Antecedentes y Clínico -->
+                    <div class="card form-block">
+                        <div class="form-block-header orange">
+                            <i class="ph-bold ph-file-text"></i> Antecedentes y Diagnóstico
+                        </div>
+                        <div class="form-grid full-width">
+                            <div class="input-group">
+                                <label>Diagnóstico</label>
+                                <textarea rows="2" placeholder="Diagnóstico principal y comorbilidades"></textarea>
+                            </div>
+                            <div class="input-group">
+                                <label>Antecedentes Clínicos</label>
+                                <textarea rows="2" placeholder="Antecedentes médicos relevantes"></textarea>
+                            </div>
+                            <div class="input-group">
+                                <label>Hábitos de Vida / Factores de Riesgo</label>
+                                <textarea rows="2" placeholder="Tabaquismo, alcoholismo, sedentarismo..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Médico Tratante</label>
+                                <input type="text" placeholder="Nombre del Dr.">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Cuestionario de Adherencia y Conocimiento -->
+                    <div class="card form-block">
+                        <div class="form-block-header blue">
+                            <i class="ph-bold ph-question"></i> Evaluación sobre Medicación
+                        </div>
+                        <div class="form-grid full-width">
+                            <div class="question-row">
+                                <label>¿Toma/utiliza el medicamento?</label>
+                                <div class="radio-group">
+                                    <label><input type="radio" name="q1"> Sí</label>
+                                    <label><input type="radio" name="q1"> No</label>
+                                    <input type="text" placeholder="¿Para qué / Quién lo mandó / Cómo lo usa?" style="flex: 1;">
+                                </div>
+                            </div>
+                            <div class="question-row">
+                                <label>¿Se olvida alguna vez de tomarlo?</label>
+                                <div class="radio-group">
+                                    <label><input type="radio" name="q2"> Sí</label>
+                                    <label><input type="radio" name="q2"> No</label>
+                                </div>
+                            </div>
+                            <div class="question-row">
+                                <label>Si se encuentra bien, ¿deja de tomarlo?</label>
+                                <div class="radio-group">
+                                    <label><input type="radio" name="q3"> Sí</label>
+                                    <label><input type="radio" name="q3"> No</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Evaluación PRM -->
+                    <div class="card form-block">
+                        <div class="form-block-header purple">
+                            <i class="ph-bold ph-warning-circle"></i> Evaluación PRM (Problemas Relacionados con Mdtos)
+                        </div>
+                        <div class="form-grid full-width">
+                            <div class="input-group">
+                                <label>Medicamento Involucrado</label>
+                                <input type="text" placeholder="Nombre completo">
+                            </div>
+                            <div class="input-group">
+                                <label>Problema Relacionado con Medicamentos (PRM)</label>
+                                <select>
+                                    <option>Seleccionar...</option>
+                                    <option>Necesidad: Problema de salud no tratado</option>
+                                    <option>Necesidad: Efecto de medicamento innecesario</option>
+                                    <option>Efectividad: Inefectividad no cuantitativa</option>
+                                    <option>Efectividad: Inefectividad cuantitativa (Dosis baja)</option>
+                                    <option>Seguridad: Inseguridad no cuantitativa (RAM)</option>
+                                    <option>Seguridad: Inseguridad cuantitativa (Dosis alta/Toxicidad)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Evaluación / Intervención propuesta</label>
+                                <textarea rows="2" placeholder="Recomendación Farmacéutica"></textarea>
+                            </div>
+                            <div class="input-group">
+                                <label>Resultado de la Intervención</label>
+                                <select>
+                                    <option>Seleccionar...</option>
+                                    <option>Aceptada: Resuelto</option>
+                                    <option>Aceptada: No Resuelto</option>
+                                    <option>No Aceptada</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px;">
+                        <button type="button" class="btn btn-primary" style="width: 100%; border-radius: var(--radius-xl); padding: 18px; font-size: 16px;">💾 Guardar Registro de Entrevista</button>
+                    </div>
+                </form>
+            </div>
         </main>
 
         <!-- Bottom Navigation for iOS feel -->
@@ -292,6 +458,10 @@
             <a href="#" class="nav-item" data-tab="pacientes">
                 <i class="ph-bold ph-users"></i>
                 <span>SFT</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="entrevista">
+                <i class="ph-bold ph-clipboard-text"></i>
+                <span>MDTOS</span>
             </a>
             <a href="#" class="nav-item" data-tab="alertas">
                 <div class="icon-wrap">
