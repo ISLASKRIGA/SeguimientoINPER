@@ -39,6 +39,11 @@ let db = {
 };
 
 // UI Navigation
+window.setAndSearchSFT = function(exp) {
+    document.getElementById('search-sft').value = exp;
+    window.loadPatientSFT(); 
+};
+
 function switchTab(tabId) {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
@@ -48,6 +53,12 @@ function switchTab(tabId) {
     
     if(tabId === 'dashboard') {
         renderTable();
+    } else if(tabId === 'pacientes') {
+        // Auto-load Elvira's mock profile by default for the demo
+        const currentExp = document.getElementById('sft-paciente-exp').innerText;
+        if (!currentExp || currentExp === "INP-XXXX") {
+            setAndSearchSFT('138403010');
+        }
     }
 }
 
