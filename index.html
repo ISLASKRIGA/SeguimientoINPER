@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>SIGEFAR-INPer | iOS App</title>
+    <!-- Google Fonts: Nunito for that playful Duolingo vibe -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons (Bold for chunkier, playful look) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="ios-container">
+        <!-- iOS Top Header -->
+        <header class="ios-header">
+            <div class="brand-app">
+                <div class="logo">
+                    <i class="ph-bold ph-pill"></i>
+                </div>
+                <h2>SIGEFAR</h2>
+            </div>
+            
+            <div class="user-profile">
+                <div class="header-actions">
+                    <button class="icon-btn search-btn"><i class="ph-bold ph-magnifying-glass"></i></button>
+                    <button class="icon-btn bell-btn"><i class="ph-bold ph-bell"></i></button>
+                </div>
+                <img src="https://ui-avatars.com/api/?name=Coord+Farm&background=1cb0f6&color=fff&bold=true&rounded=true" alt="Farmacia" class="avatar">
+            </div>
+        </header>
+
+        <!-- Main Content Scroll Area -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div class="view-section active" id="view-dashboard">
+                <div class="page-title-area">
+                    <h1>Coord. de Farmacia <i class="ph-fill ph-first-aid" style="color: #ff4b4b;"></i></h1>
+                    <p class="subtitle">Monitoreo de surtimiento INPer</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card blue">
+                        <div class="stat-icon"><i class="ph-bold ph-file-text"></i></div>
+                        <div class="stat-details">
+                            <p class="stat-title">Recetas</p>
+                            <h3 class="stat-value">124</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon"><i class="ph-bold ph-check-circle"></i></div>
+                        <div class="stat-details">
+                            <p class="stat-title">Surtidas</p>
+                            <h3 class="stat-value">98</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-icon"><i class="ph-bold ph-clock-counter-clockwise"></i></div>
+                        <div class="stat-details">
+                            <p class="stat-title">Pendientes</p>
+                            <h3 class="stat-value">15</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card red">
+                        <div class="stat-icon"><i class="ph-bold ph-warning"></i></div>
+                        <div class="stat-details">
+                            <p class="stat-title">Alertas</p>
+                            <h3 class="stat-value">3</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-banner">
+                    <div class="action-text">
+                        <h3>¿Nueva Prescripción?</h3>
+                        <p>Captura rápida desde el sistema.</p>
+                    </div>
+                    <button class="btn btn-primary btn-float" onclick="switchTab('receta')">
+                        <i class="ph-bold ph-plus"></i> Capturar
+                    </button>
+                </div>
+
+                <div class="list-section">
+                    <div class="section-header">
+                        <h3>Últimas Recetas</h3>
+                        <button class="btn-text">Ver todo</button>
+                    </div>
+                    <div class="table-container">
+                        <!-- We use the same ID so JS populates it -->
+                        <table class="data-table ios-table" id="dashboard-table">
+                            <thead>
+                                <tr>
+                                    <th>Folio & Info</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Receta View -->
+            <div class="view-section" id="view-receta">
+                <div class="page-title-area">
+                    <h1>Alta de Receta <i class="ph-fill ph-magic-wand" style="color: #ff9600;"></i></h1>
+                    <p class="subtitle">Validación farmacoterapéutica</p>
+                </div>
+
+                <div class="card form-card">
+                    <form id="receta-form">
+                        <div class="form-section">
+                            <h3 class="section-badge"><i class="ph-bold ph-user"></i> Paciente</h3>
+                            <div class="form-grid">
+                                <div class="form-group span-2">
+                                    <label>Expediente</label>
+                                    <input type="text" id="expediente" required placeholder="INP-2024-089" autocomplete="off" class="ios-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Folio</label>
+                                    <input type="text" id="folio" required placeholder="R-55421" class="ios-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Médico</label>
+                                    <input type="text" id="medico" required placeholder="Nombre..." class="ios-input">
+                                </div>
+                                <div class="form-group span-2">
+                                    <label>Servicio</label>
+                                    <select id="servicio" required class="ios-input">
+                                        <option value="">Seleccione...</option>
+                                        <option value="Perinatología">Perinatología</option>
+                                        <option value="Obstetricia">Obstetricia</option>
+                                        <option value="Ginecología">Ginecología</option>
+                                        <option value="Urgencias">Urgencias</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3 class="section-badge"><i class="ph-bold ph-pill"></i> Prescripción</h3>
+                            <div class="prescription-list" id="prescription-list">
+                                <div class="prescription-item ios-med-item">
+                                    <div class="form-group large">
+                                        <label>Medicamento</label>
+                                        <input type="text" class="med-name ios-input" required placeholder="Ej. Ácido Fólico 5mg" autocomplete="off">
+                                    </div>
+                                    <div class="med-row">
+                                        <div class="form-group small">
+                                            <label>Dosis</label>
+                                            <input type="text" class="med-dosis ios-input" required placeholder="Ej. 1 tab">
+                                        </div>
+                                        <div class="form-group small">
+                                            <label>Frecuencia</label>
+                                            <select class="med-freq ios-input">
+                                                <option value="24h">c/24h</option>
+                                                <option value="12h">c/12h</option>
+                                                <option value="8h">c/8h</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn-icon danger remove-med"><i class="ph-bold ph-minus"></i></button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-block" id="btn-add-med">
+                                <i class="ph-bold ph-plus"></i> Añadir Otro
+                            </button>
+                        </div>
+
+                        <div class="form-actions sticky-bottom">
+                            <button type="submit" class="btn btn-primary btn-block btn-massive" id="btn-submit-receta">Registrar y Validar <i class="ph-bold ph-check-circle"></i></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Seguimiento de Pacientes View -->
+            <div class="view-section" id="view-pacientes">
+                <div class="page-title-area">
+                    <h1>Seguimiento SFT <i class="ph-fill ph-heartbeat" style="color: #ff4b4b;"></i></h1>
+                    <p class="subtitle">Expediente y notas clínicas</p>
+                </div>
+
+                <div class="search-wrap">
+                    <div class="ios-search-bar">
+                        <i class="ph-bold ph-magnifying-glass"></i>
+                        <input type="text" placeholder="Expediente ej. INP-2024-101" id="search-sft" autocomplete="off">
+                    </div>
+                    <button class="btn btn-primary search-action" onclick="loadPatientSFT()">Buscar</button>
+                </div>
+
+                <!-- Perfil del Paciente -->
+                <div class="card sft-profile-card">
+                    <div class="profile-header">
+                        <div class="avatar-large">
+                            <i class="ph-fill ph-user"></i>
+                        </div>
+                        <div class="profile-titles">
+                            <h2 id="sft-paciente-nombre">Paciente</h2>
+                            <p id="sft-paciente-exp">INP-XXXX</p>
+                            <span class="status-tag surtido inline-tag">Vigente</span>
+                        </div>
+                    </div>
+                    <div class="sft-info-boxes">
+                        <div class="info-box">
+                            <i class="ph-fill ph-bed"></i>
+                            <span>Obstetricia</span>
+                        </div>
+                        <div class="info-box warning">
+                            <i class="ph-fill ph-warning"></i>
+                            <span>Alergia: Cefalosporinas</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card tabbed-card">
+                    <div class="tabbed-header">
+                        <div class="tab-btn active">Tratamiento</div>
+                        <div class="tab-btn">Notas</div>
+                    </div>
+                    
+                    <div class="sft-list" id="sft-active-meds">
+                        <div class="empty-state">
+                            <i class="ph-duotone ph-magnifying-glass"></i>
+                            <p>Busque un expediente</p>
+                        </div>
+                    </div>
+
+                    <div class="notes-timeline" id="sft-timeline" style="display: none;">
+                        <!-- Populate with JS -->
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Bottom Navigation for iOS feel -->
+        <nav class="bottom-nav">
+            <a href="#" class="nav-item active" data-tab="dashboard">
+                <i class="ph-bold ph-squares-four"></i>
+                <span>Tablero</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="receta">
+                <i class="ph-bold ph-stethoscope"></i>
+                <span>Alta</span>
+            </a>
+            <a href="#" class="nav-item special-fab" data-tab="surtimiento">
+                <div class="fab-circle">
+                    <i class="ph-bold ph-prescription"></i>
+                </div>
+            </a>
+            <a href="#" class="nav-item" data-tab="pacientes">
+                <i class="ph-bold ph-users"></i>
+                <span>SFT</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="alertas">
+                <div class="icon-wrap">
+                    <i class="ph-bold ph-warning-circle"></i>
+                    <span class="badge">3</span>
+                </div>
+                <span>Alertas</span>
+            </a>
+        </nav>
+
+        <!-- Modals & Alerts overlay -->
+        <div id="alerts-container"></div>
+        
+        <div class="modal-overlay" id="surtimiento-modal">
+            <div class="ios-modal">
+                <div class="modal-header">
+                    <h2>Surtimiento</h2>
+                    <button class="icon-btn close-btn" onclick="closeModal()"><i class="ph-bold ph-x"></i></button>
+                </div>
+                <div class="modal-body" id="modal-details">
+                    <!-- Content -->
+                </div>
+                <div class="modal-footer row-btns">
+                    <button class="btn btn-secondary" onclick="processSurtimiento('parcial')">Parcial</button>
+                    <button class="btn btn-primary" onclick="processSurtimiento('completo')">Completo</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <script src="app.js"></script>
+    <script>
+        // Little script to handle the tab toggle in SFT View, since it was not in the original app.js
+        document.addEventListener('DOMContentLoaded', () => {
+             const tabBtns = document.querySelectorAll('.tab-btn');
+             const medsList = document.getElementById('sft-active-meds');
+             const timeline = document.getElementById('sft-timeline');
+             
+             if(tabBtns.length > 1) {
+                 tabBtns[0].addEventListener('click', () => {
+                     tabBtns[0].classList.add('active');
+                     tabBtns[1].classList.remove('active');
+                     medsList.style.display = 'block';
+                     timeline.style.display = 'none';
+                 });
+                 tabBtns[1].addEventListener('click', () => {
+                     tabBtns[1].classList.add('active');
+                     tabBtns[0].classList.remove('active');
+                     medsList.style.display = 'none';
+                     timeline.style.display = 'block';
+                 });
+             }
+        });
+    </script>
+</body>
+</html>
