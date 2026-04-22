@@ -860,6 +860,23 @@ body {
     font-weight: 800;
     color: var(--text-main);
 }
+.question-row input[type="text"], .question-row textarea {
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-main);
+    background: var(--bg-surface);
+    transition: all 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+}
+.question-row input[type="text"]:focus, .question-row textarea:focus {
+    border-color: var(--blue);
+    background: #ffffff;
+    outline: none;
+}
 .radio-group {
     display: flex;
     gap: 16px;
