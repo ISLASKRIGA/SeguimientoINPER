@@ -500,6 +500,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex: 1;
+    min-width: 0;
 }
 
 .form-group label {
@@ -510,6 +512,7 @@ body {
 }
 
 .ios-input {
+    width: 100%;
     background: var(--bg-base);
     border: 2px solid var(--border);
     border-radius: var(--radius-lg);
@@ -915,6 +918,10 @@ body {
 
     .form-grid {
         grid-template-columns: 1fr 1fr;
+    }
+    
+    .span-2 {
+        grid-column: span 2;
     }
 
     /* Restore table layout for desktop */

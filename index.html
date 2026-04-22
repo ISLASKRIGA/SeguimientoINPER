@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>SIGEFAR-INPer | iOS App</title>
@@ -14,6 +16,7 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="ios-container">
         <!-- iOS Top Header -->
@@ -24,13 +27,14 @@
                 </div>
                 <h2>SIGEFAR</h2>
             </div>
-            
+
             <div class="user-profile">
                 <div class="header-actions">
                     <button class="icon-btn search-btn"><i class="ph-bold ph-magnifying-glass"></i></button>
                     <button class="icon-btn bell-btn"><i class="ph-bold ph-bell"></i></button>
                 </div>
-                <img src="https://ui-avatars.com/api/?name=Coord+Farm&background=1cb0f6&color=fff&bold=true&rounded=true" alt="Farmacia" class="avatar">
+                <img src="https://ui-avatars.com/api/?name=Coord+Farm&background=1cb0f6&color=fff&bold=true&rounded=true"
+                    alt="Farmacia" class="avatar">
             </div>
         </header>
 
@@ -39,7 +43,7 @@
             <!-- Dashboard View -->
             <div class="view-section active" id="view-dashboard">
                 <div class="page-title-area">
-                    <h1>Coord. de Farmacia <i class="ph-fill ph-first-aid" style="color: #ff4b4b;"></i></h1>
+                    <h1>Coord. de Farmacia Hospitalaria<i class="ph-fill ph-first-aid" style="color: #ff4b4b;"></i></h1>
                     <p class="subtitle">Monitoreo de surtimiento INPer</p>
                 </div>
 
@@ -121,7 +125,8 @@
                             <div class="form-grid">
                                 <div class="form-group span-2">
                                     <label>Expediente</label>
-                                    <input type="text" id="expediente" required placeholder="INP-2024-089" autocomplete="off" class="ios-input">
+                                    <input type="text" id="expediente" required placeholder="INP-2024-089"
+                                        autocomplete="off" class="ios-input">
                                 </div>
                                 <div class="form-group">
                                     <label>Folio</label>
@@ -150,12 +155,14 @@
                                 <div class="prescription-item ios-med-item">
                                     <div class="form-group large">
                                         <label>Medicamento</label>
-                                        <input type="text" class="med-name ios-input" required placeholder="Ej. Ácido Fólico 5mg" autocomplete="off">
+                                        <input type="text" class="med-name ios-input" required
+                                            placeholder="Ej. Ácido Fólico 5mg" autocomplete="off">
                                     </div>
                                     <div class="med-row">
                                         <div class="form-group small">
                                             <label>Dosis</label>
-                                            <input type="text" class="med-dosis ios-input" required placeholder="Ej. 1 tab">
+                                            <input type="text" class="med-dosis ios-input" required
+                                                placeholder="Ej. 1 tab">
                                         </div>
                                         <div class="form-group small">
                                             <label>Frecuencia</label>
@@ -166,7 +173,8 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <button type="button" class="btn-icon danger remove-med"><i class="ph-bold ph-minus"></i></button>
+                                    <button type="button" class="btn-icon danger remove-med"><i
+                                            class="ph-bold ph-minus"></i></button>
                                 </div>
                             </div>
                             <button type="button" class="btn btn-secondary btn-block" id="btn-add-med">
@@ -175,7 +183,9 @@
                         </div>
 
                         <div class="form-actions sticky-bottom">
-                            <button type="submit" class="btn btn-primary btn-block btn-massive" id="btn-submit-receta">Registrar y Validar <i class="ph-bold ph-check-circle"></i></button>
+                            <button type="submit" class="btn btn-primary btn-block btn-massive"
+                                id="btn-submit-receta">Registrar y Validar <i
+                                    class="ph-bold ph-check-circle"></i></button>
                         </div>
                     </form>
                 </div>
@@ -225,7 +235,7 @@
                         <div class="tab-btn active">Tratamiento</div>
                         <div class="tab-btn">Notas</div>
                     </div>
-                    
+
                     <div class="sft-list" id="sft-active-meds">
                         <div class="empty-state">
                             <i class="ph-duotone ph-magnifying-glass"></i>
@@ -271,7 +281,7 @@
 
         <!-- Modals & Alerts overlay -->
         <div id="alerts-container"></div>
-        
+
         <div class="modal-overlay" id="surtimiento-modal">
             <div class="ios-modal">
                 <div class="modal-header">
@@ -293,25 +303,26 @@
     <script>
         // Little script to handle the tab toggle in SFT View, since it was not in the original app.js
         document.addEventListener('DOMContentLoaded', () => {
-             const tabBtns = document.querySelectorAll('.tab-btn');
-             const medsList = document.getElementById('sft-active-meds');
-             const timeline = document.getElementById('sft-timeline');
-             
-             if(tabBtns.length > 1) {
-                 tabBtns[0].addEventListener('click', () => {
-                     tabBtns[0].classList.add('active');
-                     tabBtns[1].classList.remove('active');
-                     medsList.style.display = 'block';
-                     timeline.style.display = 'none';
-                 });
-                 tabBtns[1].addEventListener('click', () => {
-                     tabBtns[1].classList.add('active');
-                     tabBtns[0].classList.remove('active');
-                     medsList.style.display = 'none';
-                     timeline.style.display = 'block';
-                 });
-             }
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const medsList = document.getElementById('sft-active-meds');
+            const timeline = document.getElementById('sft-timeline');
+
+            if (tabBtns.length > 1) {
+                tabBtns[0].addEventListener('click', () => {
+                    tabBtns[0].classList.add('active');
+                    tabBtns[1].classList.remove('active');
+                    medsList.style.display = 'block';
+                    timeline.style.display = 'none';
+                });
+                tabBtns[1].addEventListener('click', () => {
+                    tabBtns[1].classList.add('active');
+                    tabBtns[0].classList.remove('active');
+                    medsList.style.display = 'none';
+                    timeline.style.display = 'block';
+                });
+            }
         });
     </script>
 </body>
+
 </html>
