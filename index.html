@@ -231,20 +231,34 @@
                 </div>
 
                 <div class="card tabbed-card">
-                    <div class="tabbed-header">
-                        <div class="tab-btn active">Tratamiento</div>
-                        <div class="tab-btn">Notas</div>
+                    <div class="tabbed-header" id="sft-tabs">
+                        <div class="tab-btn active" data-sft="tratamiento">Tratamiento</div>
+                        <div class="tab-btn" data-sft="mapa">Mapa Horario</div>
+                        <div class="tab-btn" data-sft="notas">Notas</div>
                     </div>
 
-                    <div class="sft-list" id="sft-active-meds">
-                        <div class="empty-state">
-                            <i class="ph-duotone ph-magnifying-glass"></i>
-                            <p>Busque un expediente</p>
+                    <div class="sft-tab-content active" id="sft-tab-tratamiento">
+                        <div class="sft-list" id="sft-active-meds">
+                            <div class="empty-state">
+                                <i class="ph-duotone ph-magnifying-glass"></i>
+                                <p>Busque un expediente</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="notes-timeline" id="sft-timeline" style="display: none;">
-                        <!-- Populate with JS -->
+                    <div class="sft-tab-content" id="sft-tab-mapa" style="display: none;">
+                        <div id="sft-mapa-horario" class="mapa-horario-wrapper">
+                            <div class="empty-state">
+                                <i class="ph-duotone ph-calendar-check"></i>
+                                <p>Busque un expediente</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sft-tab-content" id="sft-tab-notas" style="display: none;">
+                        <div class="notes-timeline" id="sft-timeline">
+                            <!-- Populate with JS -->
+                        </div>
                     </div>
                 </div>
             </div>

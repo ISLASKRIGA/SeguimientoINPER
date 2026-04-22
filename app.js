@@ -308,7 +308,24 @@ document.addEventListener('DOMContentLoaded', () => {
     updateStats();
 });
 
-// SFT Logic
+// SFT Inner Tabs Logic
+document.querySelectorAll('#sft-tabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#sft-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.sft-tab-content').forEach(content => {
+            content.classList.remove('active');
+            content.style.display = 'none';
+        });
+        
+        btn.classList.add('active');
+        const targetId = 'sft-tab-' + btn.dataset.sft;
+        const targetContent = document.getElementById(targetId);
+        targetContent.classList.add('active');
+        targetContent.style.display = 'block';
+    });
+});
+
+// SFT Logic & Data
 const mockSFTData = {
     "INP-2024-101": {
         nombre: "María Luisa Pérez",
@@ -317,17 +334,61 @@ const mockSFTData = {
         ],
         notas: [
             { title: "Alta hospitalaria próxima", meta: "Dra. Gomez | Hoy", desc: "Se instruyó sobre uso de analgésicos en casa. Adherencia prometida del 100%.", color: "blue" }
-        ]
+        ],
+        mapa: []
     },
-    "INP-2023-899": {
-        nombre: "Ana Gómez Flores",
+    // New mock patient based on Elvira Martinez Gonzalez (from user's image)
+    "138403010": {
+        nombre: "Elvira Martinez Gonzalez",
         meds: [
-            { nombre: "Ácido Fólico 5mg", prescrito: "Ayer", notas: "1 tableta c/24h" },
-            { nombre: "Sulfato Ferroso 300mg", prescrito: "Ayer", notas: "1 tableta c/12h" }
+            { nombre: "Cefalexina 500mg", prescrito: "Hoy", notas: "1 tableta c/8h vía oral" },
+            { nombre: "Ondasetron 8mg", prescrito: "Hoy", notas: "1 tableta c/8h vía oral" },
+            { nombre: "Ketoprofeno 100mg", prescrito: "Hoy", notas: "1 tableta c/12h vía oral" },
+            { nombre: "Paracetamol 500mg", prescrito: "Hoy", notas: "1 tableta c/8h vía oral" },
+            { nombre: "Plantago (Fibra)", prescrito: "Hoy", notas: "1 cucharada c/24h" },
+            { nombre: "Esomeprazol 40mg", prescrito: "Hoy", notas: "1 tableta c/24h vía oral" }
         ],
         notas: [
-            { title: "Intervención: Conciliación Positiva", meta: "Farm. Carlos R. | Ayer", desc: "Se validó la adherencia al Ácido Fólico. Paciente reporta leve acidez, se sugirió cambiar horario de ingesta.", color: "green" },
-            { title: "PRM Detectado: Interacción Moderada", meta: "Sistema | Ayer", desc: "Precaución por coadministración de Hierro. Indicar separar dosis 2 horas de lácteos.", color: "yellow" }
+            { title: "Educación al paciente completada", meta: "Farmacia Hospitalaria | Hoy", desc: "Se entregó Mapa Horario impreso y digital. Paciente comprende indicaciones.", color: "green" }
+        ],
+        mapa: [
+            {
+                idFase: "manana",
+                titulo: "Día / Mañana",
+                icon: "ph-sun",
+                color: "manana", // maps to CSS class
+                tomas: [
+                    { hora: "07:00", med: "Cefalexina", dosis: "1 tableta 500mg vía oral", term: "28 abril", rec: "" },
+                    { hora: "08:00", med: "Ondasetron", dosis: "1 tableta 8mg vía oral", term: "29 abril", rec: "Para náuseas" },
+                    { hora: "10:00", med: "Ketoprofeno", dosis: "1 tableta 100mg vía oral", term: "27 abril", rec: "Solo en caso de dolor" },
+                    { hora: "11:00", med: "Paracetamol", dosis: "1 tableta de 500mg", term: "27 abril", rec: "Para el dolor" },
+                    { hora: "12:00", med: "Plantago (Fibra)", dosis: "1 cucharada en 1/4 de agua", term: "25 abril", rec: "" }
+                ]
+            },
+            {
+                idFase: "tarde",
+                titulo: "Tarde",
+                icon: "ph-cloud-sun",
+                color: "tarde",
+                tomas: [
+                    { hora: "14:00", med: "Esomeprazol vía oral", dosis: "1 tableta 40 mg", term: "22 junio", rec: "1 diario (Omeprazol)" },
+                    { hora: "16:00", med: "Cefalexina", dosis: "Tomar dosis", term: "28 abril", rec: "" },
+                    { hora: "16:00", med: "Ondasetron", dosis: "Tomar dosis", term: "29 abril", rec: "Para náuseas" }
+                ]
+            },
+            {
+                idFase: "noche",
+                titulo: "Noche",
+                icon: "ph-moon",
+                color: "noche",
+                tomas: [
+                    { hora: "19:00", med: "Paracetamol", dosis: "Tomar dosis", term: "29 abril", rec: "" },
+                    { hora: "22:00", med: "Ketoprofeno", dosis: "Tomar dosis", term: "27 abril", rec: "Solo en caso de dolor" },
+                    { hora: "24:00", med: "Cefalexina", dosis: "Tomar dosis", term: "28 abril", rec: "" },
+                    { hora: "24:00", med: "Ondasetron", dosis: "Tomar dosis", term: "29 abril", rec: "Para náuseas" },
+                    { hora: "03:00", med: "Paracetamol", dosis: "Tomar dosis", term: "28 abril", rec: "" }
+                ]
+            }
         ]
     }
 };
@@ -369,10 +430,47 @@ window.loadPatientSFT = function() {
         `).join('');
         document.getElementById('sft-timeline').innerHTML = notesHtml || '<p style="padding: 20px;">Sin intervenciones registradas</p>';
         
+        // Load Mapa Horario
+        const mapaContainer = document.getElementById('sft-mapa-horario');
+        if (data.mapa && data.mapa.length > 0) {
+            let mapaHtml = '';
+            data.mapa.forEach(fase => {
+                let tomasHtml = fase.tomas.map(t => {
+                    let recHTML = t.rec ? `<span class="badge-recomendacion"><i class="ph-bold ph-info"></i> ${t.rec}</span>` : '';
+                    return `
+                        <div class="fase-row">
+                            <div class="fase-time">${t.hora}</div>
+                            <div class="fase-details">
+                                <h4>${t.med}</h4>
+                                <p>${t.dosis} • Limite: ${t.term}</p>
+                                ${recHTML}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                mapaHtml += `
+                    <div class="fase-card">
+                        <div class="fase-header ${fase.color}">
+                            <i class="ph-fill ${fase.icon}"></i>
+                            <span>${fase.titulo}</span>
+                        </div>
+                        <div class="fase-body">
+                            ${tomasHtml}
+                        </div>
+                    </div>
+                `;
+            });
+            mapaContainer.innerHTML = mapaHtml;
+        } else {
+            mapaContainer.innerHTML = '<div class="empty-state"><i class="ph-duotone ph-calendar-x"></i><p>Mapa horario no disponible</p></div>';
+        }
+
         showAlert('Expediente clínico cargado exitosamente', 'green');
     } else {
         showAlert('No se encontró expediente farmacoterapéutico', 'red');
         document.getElementById('sft-active-meds').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
         document.getElementById('sft-timeline').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
+        document.getElementById('sft-mapa-horario').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
     }
 }

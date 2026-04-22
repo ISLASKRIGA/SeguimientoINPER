@@ -683,6 +683,92 @@ body {
 .empty-state i { font-size: 48px; margin-bottom: 12px; color: var(--border); }
 .empty-state p { font-size: 16px; font-weight: 700; }
 
+/* Mapa Horario (Educacion al Paciente) */
+.mapa-horario-wrapper {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: #fafafa;
+}
+
+.fase-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-xl);
+    border: 2px solid var(--border);
+    border-bottom: 4px solid var(--border);
+    overflow: hidden;
+}
+
+.fase-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    font-weight: 800;
+    color: white;
+}
+.fase-header.manana { background: var(--yellow); }
+.fase-header.tarde { background: var(--orange); }
+.fase-header.noche { background: var(--purple); }
+
+.fase-header i { font-size: 24px; }
+
+.fase-row {
+    display: flex;
+    padding: 16px;
+    border-bottom: 2px solid var(--border);
+    gap: 16px;
+    align-items: center;
+}
+.fase-row:last-child {
+    border-bottom: none;
+}
+
+.fase-time {
+    background: var(--bg-base);
+    padding: 8px;
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
+    text-align: center;
+    min-width: 65px;
+    border: 2px solid var(--border);
+}
+
+.fase-details {
+    flex: 1;
+}
+
+.fase-details h4 {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 4px;
+}
+
+.fase-details p {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.badge-recomendacion {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--blue);
+    background: #d1f0ff;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+}
+.badge-recomendacion i { font-size: 14px; }
+
 .sft-list .med-item {
     padding: 16px 20px;
     border-bottom: 2px solid var(--border);
