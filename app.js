@@ -504,3 +504,57 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// Render Advanced SFT Analytics
+document.addEventListener('DOMContentLoaded', () => {
+    // PRM Doughnut Chart
+    const ctxPRM = document.getElementById('chartPRM');
+    if (ctxPRM) {
+        new Chart(ctxPRM, {
+            type: 'doughnut',
+            data: {
+                labels: ['Necesidad', 'Efectividad', 'Seguridad'],
+                datasets: [{
+                    data: [35, 45, 20],
+                    backgroundColor: ['#ff9600', '#1cb0f6', '#ff4b4b'],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { family: 'Nunito', weight: 'bold' } } }
+                }
+            }
+        });
+    }
+
+    // Servicios Bar Chart
+    const ctxServicios = document.getElementById('chartServicios');
+    if (ctxServicios) {
+        new Chart(ctxServicios, {
+            type: 'bar',
+            data: {
+                labels: ['Med Int', 'Gineco', 'Cirugía', 'UCI', 'Urgencias'],
+                datasets: [{
+                    label: 'SFT Creados',
+                    data: [42, 35, 28, 22, 15],
+                    backgroundColor: '#1cb0f6',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+});
