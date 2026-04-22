@@ -885,6 +885,75 @@ body {
     border-radius: var(--radius-md);
     min-width: 200px;
 }
+
+/* Sub-tabs para formato entrevista */
+.entrevista-nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding: 0 16px 16px;
+}
+.e-nav-btn {
+    background: var(--bg-surface);
+    border: 2px solid var(--border);
+    border-bottom: 3px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+.e-nav-btn.active {
+    background: var(--blue);
+    color: white;
+    border-color: var(--blue);
+}
+
+/* Tarjetas e items especiales del form */
+.estado-situacion-card {
+    border: 2px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: white;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.estado-situacion-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 900;
+    font-size: 16px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 8px;
+    color: var(--red);
+}
+.nes-checkboxes {
+    display: flex;
+    gap: 16px;
+    background: var(--bg-base);
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--border);
+}
+.nes-checkboxes label {
+    font-weight: 800;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-main);
+}
+.nes-checkboxes input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--green);
+}
+
 .sft-list .med-item {
     padding: 16px 20px;
     border-bottom: 2px solid var(--border);

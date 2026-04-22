@@ -272,14 +272,23 @@
                 </div>
             </div>
 
-            <!-- FORMATO PRIMERA ENTREVISTA (From Excel) -->
+            <!-- FORMATO SFT COMPLETO (From Excel) -->
             <div id="view-entrevista" class="view-section">
                 <div class="header-section">
-                    <h2>1era Entrevista SFT</h2>
-                    <p class="subtitle">Apertura de expediente y valoración inicial</p>
+                    <h2>Expediente SFT Avanzado</h2>
+                    <p class="subtitle">Apertura, Estado de Situación e Intervención</p>
+                </div>
+
+                <div class="entrevista-nav" id="entrevista-tabs">
+                    <button type="button" class="e-nav-btn active" data-etab="apertura">1. Apertura Clínica</button>
+                    <button type="button" class="e-nav-btn" data-etab="situacion">2. Estado de Situación (N,E,S)</button>
+                    <button type="button" class="e-nav-btn" data-etab="plan">3. Plan e Intervención</button>
                 </div>
 
                 <form class="entrevista-form">
+                    
+                    <!-- PESTAÑA 1: APERTURA CLÍNICA Y ADHERENCIA -->
+                    <div class="entrevista-subtab active" id="e-tab-apertura">
                     <!-- 1. Datos Generales -->
                     <div class="card form-block">
                         <div class="form-block-header green">
@@ -417,46 +426,188 @@
                         </div>
                     </div>
 
-                    <!-- 4. Evaluación PRM -->
-                    <div class="card form-block">
-                        <div class="form-block-header purple">
-                            <i class="ph-bold ph-warning-circle"></i> Evaluación PRM (Problemas Relacionados con Mdtos)
-                        </div>
-                        <div class="form-grid full-width">
-                            <div class="input-group">
-                                <label>Medicamento Involucrado</label>
-                                <input type="text" placeholder="Nombre completo">
-                            </div>
-                            <div class="input-group">
-                                <label>Problema Relacionado con Medicamentos (PRM)</label>
-                                <select>
-                                    <option>Seleccionar...</option>
-                                    <option>Necesidad: Problema de salud no tratado</option>
-                                    <option>Necesidad: Efecto de medicamento innecesario</option>
-                                    <option>Efectividad: Inefectividad no cuantitativa</option>
-                                    <option>Efectividad: Inefectividad cuantitativa (Dosis baja)</option>
-                                    <option>Seguridad: Inseguridad no cuantitativa (RAM)</option>
-                                    <option>Seguridad: Inseguridad cuantitativa (Dosis alta/Toxicidad)</option>
-                                </select>
-                            </div>
-                            <div class="input-group">
-                                <label>Evaluación / Intervención propuesta</label>
-                                <textarea rows="2" placeholder="Recomendación Farmacéutica"></textarea>
-                            </div>
-                            <div class="input-group">
-                                <label>Resultado de la Intervención</label>
-                                <select>
-                                    <option>Seleccionar...</option>
-                                    <option>Aceptada: Resuelto</option>
-                                    <option>Aceptada: No Resuelto</option>
-                                    <option>No Aceptada</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    </div> <!-- Fin Pestaña 1 -->
 
+                    <!-- PESTAÑA 2: ESTADO DE SITUACIÓN -->
+                    <div class="entrevista-subtab" id="e-tab-situacion" style="display: none;">
+                        <div class="card form-block">
+                            <div class="form-block-header green">
+                                <i class="ph-bold ph-heartbeat"></i> Estado de Situación (Tratamientos vs Problemas)
+                            </div>
+                            
+                            <!-- Ejemplo de fila paciente / Mapeo -->
+                            <div class="estado-situacion-card" style="border: none; border-bottom: 2px dashed #ccc; border-radius: 0;">
+                                <div class="estado-situacion-header">
+                                    <span>P. Salud: Hipertensión Arterial</span>
+                                    <span style="color: var(--blue);">Mdto: Losartán 50mg</span>
+                                </div>
+                                <div class="form-grid info-grid" style="padding: 0; border: none;">
+                                    <div class="input-group">
+                                        <label>Inicio</label>
+                                        <input type="date">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>¿Controlado?</label>
+                                        <select><option>Sí</option><option>No</option></select>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>¿Preocupa?</label>
+                                        <select>
+                                            <option>Poco (P)</option>
+                                            <option>Regular (R)</option>
+                                            <option>Bastante (B)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-grid info-grid" style="padding: 0; border: none; margin-top: 12px;">
+                                    <div class="input-group">
+                                        <label>Dosis Prescrita (Ej. 1-2-1)</label>
+                                        <input type="text" placeholder="Prescrita">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Dosis Usada por Paciente</label>
+                                        <input type="text" placeholder="Usada real">
+                                    </div>
+                                </div>
+                                
+                                <div class="nes-checkboxes">
+                                    <label><input type="checkbox"> N (Necesidad)</label>
+                                    <label><input type="checkbox"> E (Efectividad)</label>
+                                    <label><input type="checkbox"> S (Seguridad)</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Botón agregar problema -->
+                            <div style="padding: 16px;">
+                                <button type="button" class="btn btn-outline" style="width: 100%; border-radius: var(--radius-lg); border-style: dashed;">
+                                    <i class="ph-bold ph-plus"></i> Añadir Par (Problema / Medicamento)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card form-block">
+                            <div class="form-block-header orange">
+                                <i class="ph-bold ph-calendar-check"></i> Monitoreo Adherencia (Dias 0 a 31)
+                            </div>
+                            <div style="padding: 16px; text-align: center; color: var(--text-muted);">
+                                <i>Aquí se renderiza la cuadrícula de 31 días de control diario vinculada a este SFT.</i>
+                                <div style="margin-top: 12px; background: #eee; height: 100px; border-radius: var(--radius-md); display:flex; align-items:center; justify-content:center;">
+                                    [Cuadrícula Diario 1-31 Interactivo]
+                                </div>
+                            </div>
+                        </div>
+                    </div> <!-- Fin Pestaña 2 -->
+
+                    <!-- PESTAÑA 3: PLAN DE ACTUACIÓN E INTERVENCIÓN -->
+                    <div class="entrevista-subtab" id="e-tab-plan" style="display: none;">
+                        <div class="card form-block" style="margin-bottom: 20px;">
+                            <div class="form-block-header blue">
+                                <i class="ph-bold ph-strategy"></i> Plan de Actuación
+                            </div>
+                            <div class="form-grid full-width">
+                                <div class="input-group">
+                                    <label>Objetivo Farmacoterapéutico</label>
+                                    <input type="text" placeholder="Ej. Control de PA y educación sobre tomas">
+                                </div>
+                                <div class="form-grid info-grid" style="padding: 0; border: none;">
+                                    <div class="input-group">
+                                        <label>Prioridad</label>
+                                        <select><option>Alta</option><option>Media</option><option>Baja</option></select>
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Conseguido</label>
+                                        <select><option>En proceso</option><option>Sí</option><option>No</option></select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Evaluación PRM Detallada -->
+                        <div class="card form-block">
+                            <div class="form-block-header purple">
+                                <i class="ph-bold ph-warning-circle"></i> Hoja de Intervención Detallada (PRM)
+                            </div>
+                            <div class="form-grid full-width">
+                                <div class="input-group">
+                                    <label>Medicamento Involucrado</label>
+                                    <input type="text" placeholder="Nombre completo">
+                                </div>
+                                <div class="input-group">
+                                    <label>Clasificación RNM (Resultados Negativos Asociados a Mdtos)</label>
+                                    <select>
+                                        <option>Seleccionar...</option>
+                                        <optgroup label="Necesidad">
+                                            <option>Problemas de salud no tratados</option>
+                                            <option>Efecto de medicamento innecesario</option>
+                                        </optgroup>
+                                        <optgroup label="Efectividad">
+                                            <option>Inefectividad no cuantitativa</option>
+                                            <option>Inefectividad cuantitativa</option>
+                                        </optgroup>
+                                        <optgroup label="Seguridad">
+                                            <option>Inseguridad no cuantitativa</option>
+                                            <option>Inseguridad cuantitativa</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Causa Raíz del PRM</label>
+                                    <select>
+                                        <option>Conservación inadecuada</option>
+                                        <option>Contraindicación / Duplicidad</option>
+                                        <option>Dosis y/o duración no adecuada</option>
+                                        <option>Incumplimiento de la paciente</option>
+                                        <option>Probabilidad de efectos adversos</option>
+                                        <option>Características personales / Otros</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Acción Farmacéutica Propuesta</label>
+                                    <select>
+                                        <optgroup label="Sobre Cantidad">
+                                            <option>Modificar la dosis</option>
+                                            <option>Modificar la dosificación/pauta</option>
+                                        </optgroup>
+                                        <optgroup label="Sobre Estrategia">
+                                            <option>Añadir un medicamento</option>
+                                            <option>Retirar un medicamento</option>
+                                            <option>Sustituir un medicamento</option>
+                                        </optgroup>
+                                        <optgroup label="Sobre Educación">
+                                            <option>Forma de uso y administración</option>
+                                            <option>Aumentar la adhesión</option>
+                                            <option>Medidas no farmacológicas</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Vía de Comunicación</label>
+                                    <select>
+                                        <option>Verbal con el paciente</option>
+                                        <option>Escrita con el paciente</option>
+                                        <option>Verbal Médico-Paciente</option>
+                                        <option>Escrita Médico-Paciente</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Resultado Final</label>
+                                    <div style="display:flex; gap:12px;">
+                                        <select style="flex:1;"><option>Intervención Aceptada</option><option>Intervención No Aceptada</option></select>
+                                        <select style="flex:1;"><option>Problema Resuelto</option><option>Problema No Resuelto</option></select>
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <label>Elabora (Responsable)</label>
+                                    <input type="text" placeholder="Firma / Nombre QFB">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- Fin Pestaña 3 -->
+
+                    <!-- FOOTER AHORA AFUERA PARA TODOS -->
                     <div style="margin-top: 24px;">
-                        <button type="button" class="btn btn-primary" style="width: 100%; border-radius: var(--radius-xl); padding: 18px; font-size: 16px;">💾 Guardar Registro de Entrevista</button>
+                        <button type="button" class="btn btn-primary" style="width: 100%; border-radius: var(--radius-xl); padding: 18px; font-size: 16px;">💾 Guardar Expediente de Seguimiento (SFT)</button>
                     </div>
                 </form>
             </div>

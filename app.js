@@ -485,3 +485,22 @@ window.loadPatientSFT = function() {
         document.getElementById('sft-mapa-horario').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
     }
 }
+
+// Entrevista Sub Tabs Logic
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#entrevista-tabs .e-nav-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('#entrevista-tabs .e-nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.entrevista-subtab').forEach(content => {
+                content.classList.remove('active');
+                content.style.display = 'none';
+            });
+            
+            btn.classList.add('active');
+            const targetId = 'e-tab-' + btn.dataset.etab;
+            const targetContent = document.getElementById(targetId);
+            targetContent.classList.add('active');
+            targetContent.style.display = 'block';
+        });
+    });
+});
