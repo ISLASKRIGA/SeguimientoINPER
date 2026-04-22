@@ -370,27 +370,49 @@
                             <i class="ph-bold ph-question"></i> Evaluación sobre Medicación
                         </div>
                         <div class="form-grid full-width">
+                            <!-- Q1 -->
                             <div class="question-row">
-                                <label>¿Toma/utiliza el medicamento?</label>
+                                <label>1. ¿Toma/utiliza el medicamento?</label>
                                 <div class="radio-group">
-                                    <label><input type="radio" name="q1"> Sí</label>
-                                    <label><input type="radio" name="q1"> No</label>
-                                    <input type="text" placeholder="¿Para qué / Quién lo mandó / Cómo lo usa?" style="flex: 1;">
+                                    <label><input type="radio" name="q1" value="si"> Sí</label>
+                                    <label><input type="radio" name="q1" value="no"> No</label>
                                 </div>
                             </div>
+                            <!-- Q2 -->
                             <div class="question-row">
-                                <label>¿Se olvida alguna vez de tomarlo?</label>
+                                <label>2. ¿Para qué lo toma/utiliza?</label>
+                                <textarea rows="2" placeholder="Motivo o indicación..."></textarea>
+                            </div>
+                            <!-- Q3 -->
+                            <div class="question-row">
+                                <label>3. ¿Quién se los mandó?</label>
+                                <input type="text" placeholder="Ej. Médico familiar, especialista, automedicado...">
+                            </div>
+                            <!-- Q4 -->
+                            <div class="question-row">
+                                <label>4. ¿Desde hace cuánto tiempo toma el medicamento?</label>
+                                <input type="text" placeholder="Ej. 6 meses, 2 años...">
+                            </div>
+                            <!-- Q5 -->
+                            <div class="question-row">
+                                <label>5. ¿Se olvida alguna vez de tomarlo?</label>
                                 <div class="radio-group">
-                                    <label><input type="radio" name="q2"> Sí</label>
-                                    <label><input type="radio" name="q2"> No</label>
+                                    <label><input type="radio" name="q5" value="si"> Sí</label>
+                                    <label><input type="radio" name="q5" value="no"> No</label>
                                 </div>
                             </div>
+                            <!-- Q6 -->
                             <div class="question-row">
-                                <label>Si se encuentra bien, ¿deja de tomarlo?</label>
+                                <label>6. Si se encuentra bien, ¿deja de tomarlo?</label>
                                 <div class="radio-group">
-                                    <label><input type="radio" name="q3"> Sí</label>
-                                    <label><input type="radio" name="q3"> No</label>
+                                    <label><input type="radio" name="q6" value="si"> Sí</label>
+                                    <label><input type="radio" name="q6" value="no"> No</label>
                                 </div>
+                            </div>
+                            <!-- Q7 -->
+                            <div class="question-row">
+                                <label>7. ¿Cómo lo utiliza?</label>
+                                <textarea rows="2" placeholder="Dosis, frecuencia, vía de administración..."></textarea>
                             </div>
                         </div>
                     </div>
