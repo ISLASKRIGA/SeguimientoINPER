@@ -1,42 +1,44 @@
-// Mock Database
+const supabaseUrl = 'https://plnzmmkgabggydakytsn.supabase.co';
+const supabaseKey = 'sb_publishable_Y1coOJQ0nH1EhPsUeZr87g_KdLUywT1';
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
 let db = {
-    recetas: [
-        {
-            id: 1,
-            folio: "R-98432",
-            expediente: "INP-2024-101",
-            paciente: "María Luisa Pérez",
-            medico: "Dr. Sánchez",
-            estado: "Pendiente",
-            fecha: new Date().toISOString(),
-            medicamentos: ["Paracetamol 500mg"],
-            tieneAlerta: false
-        },
-        {
-            id: 2,
-            folio: "R-98431",
-            expediente: "INP-2023-899",
-            paciente: "Ana Gómez Flores",
-            medico: "Dra. Elena M.",
-            estado: "Surtido",
-            fecha: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-            medicamentos: ["Ácido Fólico 5mg", "Hierro"],
-            tieneAlerta: false
-        },
-        {
-            id: 3,
-            folio: "R-98430",
-            expediente: "INP-2024-005",
-            paciente: "Valeria Domínguez",
-            medico: "Dr. López",
-            estado: "Observada",
-            fecha: new Date(Date.now() - 172800000).toISOString(),
-            medicamentos: ["Metformina 850mg"],
-            tieneAlerta: true,
-            alertaMsg: "Surtimiento parcial, falta 1 caja."
-        }
-    ]
+    recetas: []
 };
+
+// Fetch data from Supabase
+async function fetchRecetas() {
+    try {
+        const { data, error } = await supabase
+            .from('recetas')
+            .select('*')
+            .order('fecha', { ascending: false });
+            
+        if (error) throw error;
+        
+        db.recetas = data.map(r => ({
+            id: r.id,
+            folio: r.folio,
+            expediente: r.expediente,
+            paciente: r.paciente,
+            medico: r.medico,
+            estado: r.estado,
+            fecha: r.fecha,
+            medicamentos: r.medicamentos,
+            tieneAlerta: r.tiene_alerta,
+            alertaMsg: r.alerta_msg
+        }));
+        
+        renderTable();
+        if (typeof updateCharts === 'function') updateCharts();
+    } catch (err) {
+        console.error('Error fetching from Supabase:', err);
+        // Note: showAlert might not be defined if called too early, but usually it is.
+    }
+}
+
+// Initial fetch
+fetchRecetas();
 
 // UI Navigation
 window.setAndSearchSFT = function(exp) {
@@ -130,7 +132,7 @@ document.getElementById('btn-add-med').addEventListener('click', () => {
 });
 
 // Receta Form Submission & ALERT LOGIC
-document.getElementById('receta-form').addEventListener('submit', (e) => {
+document.getElementById('receta-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const folio = document.getElementById('folio').value;
@@ -216,29 +218,34 @@ document.getElementById('receta-form').addEventListener('submit', (e) => {
         // We will allow saving but label it
     }
 
-    // Save record
+    // Save record to Supabase
     const newRecord = {
-        id: db.recetas.length + 1,
         folio: folio,
         expediente: exp,
         paciente: "Paciente Recuperado", // Mocked
         medico: medico,
         estado: "Pendiente",
-        fecha: new Date().toISOString(),
         medicamentos: medicamentosObj,
-        tieneAlerta: hasYellowAlert,
-        alertaMsg: conflictMsg
+        tiene_alerta: hasYellowAlert,
+        alerta_msg: conflictMsg || null
     };
 
-    db.recetas.push(newRecord);
+    try {
+        const { error } = await supabase.from('recetas').insert([newRecord]);
+        if (error) throw error;
 
-    if(!hasYellowAlert) {
-        showAlert('Receta generada y validada con éxito.', 'green');
+        if(!hasYellowAlert) {
+            showAlert('Receta generada y validada con éxito.', 'green');
+        }
+
+        // Reset UI
+        document.getElementById('receta-form').reset();
+        fetchRecetas(); // Reload from DB
+        switchTab('dashboard');
+    } catch (err) {
+        console.error('Error saving to Supabase:', err);
+        showAlert('Error al guardar en base de datos', 'red');
     }
-
-    // Reset UI
-    document.getElementById('receta-form').reset();
-    switchTab('dashboard');
 });
 
 // Toast Alertas
@@ -300,26 +307,44 @@ function closeModal() {
     currentSurtimientoId = null;
 }
 
-function processSurtimiento(type) {
+async function processSurtimiento(type) {
     if(!currentSurtimientoId) return;
     
     let r = db.recetas.find(x => x.id === currentSurtimientoId);
     if(r) {
-        if(type === 'parcial') {
-            r.estado = 'Observada';
-            r.tieneAlerta = true;
-            r.alertaMsg = "Surtimiento parcial. Faltan unidades.";
-            showAlert('Surtimiento parcial registrado.', 'yellow');
-        } else {
-            r.estado = 'Surtido';
-            r.tieneAlerta = false;
-            showAlert('Surtimiento completo registrado exitosamente.', 'green');
+        try {
+            let updatePayload = {};
+            if(type === 'parcial') {
+                updatePayload = {
+                    estado: 'Observada',
+                    tiene_alerta: true,
+                    alerta_msg: "Surtimiento parcial. Faltan unidades."
+                };
+            } else {
+                updatePayload = {
+                    estado: 'Surtido',
+                    tiene_alerta: false,
+                    alerta_msg: null
+                };
+            }
+            
+            const { error } = await supabase
+                .from('recetas')
+                .update(updatePayload)
+                .eq('id', currentSurtimientoId);
+                
+            if (error) throw error;
+            
+            if(type === 'parcial') showAlert('Surtimiento parcial registrado.', 'yellow');
+            else showAlert('Surtimiento completo registrado exitosamente.', 'green');
+            
+            closeModal();
+            fetchRecetas(); // Reload data from DB
+        } catch (err) {
+            console.error('Error updating Supabase:', err);
+            showAlert('Error al actualizar registro', 'red');
         }
     }
-    
-    closeModal();
-    renderTable();
-    updateStats();
 }
 
 function updateStats() {
