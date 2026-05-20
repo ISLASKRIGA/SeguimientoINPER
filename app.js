@@ -244,7 +244,7 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
         switchTab('dashboard');
     } catch (err) {
         console.error('Error saving to Supabase:', err);
-        showAlert('Error al guardar en base de datos', 'red');
+        showAlert('Error: ' + (err.message || 'Fallo al guardar en BD'), 'red');
     }
 });
 
