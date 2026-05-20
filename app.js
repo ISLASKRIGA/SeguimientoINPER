@@ -135,9 +135,17 @@ document.getElementById('btn-add-med').addEventListener('click', () => {
 document.getElementById('receta-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const folio = document.getElementById('folio').value;
+    const folio = document.getElementById('folio').value.trim();
     const exp = document.getElementById('expediente').value.trim().toUpperCase();
-    const medico = document.getElementById('medico').value;
+    const paciente = document.getElementById('paciente').value.trim();
+    const medico = document.getElementById('medico').value.trim();
+
+    // --- ANTI-DUPLICADOS: verificar folio único ---
+    const folioExistente = db.recetas.find(r => r.folio.trim().toUpperCase() === folio.toUpperCase());
+    if (folioExistente) {
+        showAlert(`El folio "${folio}" ya existe en el sistema. Verifique el número de receta.`, 'red');
+        return;
+    }
     
     // Gather meds
     const medItems = document.querySelectorAll('.prescription-item');
@@ -222,7 +230,7 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
     const newRecord = {
         folio: folio,
         expediente: exp,
-        paciente: "Paciente Recuperado", // Mocked
+        paciente: paciente,
         medico: medico,
         estado: "Pendiente",
         medicamentos: medicamentosObj,
@@ -304,6 +312,8 @@ function openSurtimientoModal(id) {
 
 function closeModal() {
     document.getElementById('surtimiento-modal').classList.remove('active');
+    const notasEl = document.getElementById('surtimiento-notas');
+    if (notasEl) notasEl.value = '';
     currentSurtimientoId = null;
 }
 
@@ -313,18 +323,19 @@ async function processSurtimiento(type) {
     let r = db.recetas.find(x => x.id === currentSurtimientoId);
     if(r) {
         try {
+            const notas = document.getElementById('surtimiento-notas')?.value.trim() || '';
             let updatePayload = {};
             if(type === 'parcial') {
                 updatePayload = {
                     estado: 'Observada',
                     tiene_alerta: true,
-                    alerta_msg: "Surtimiento parcial. Faltan unidades."
+                    alerta_msg: notas || "Surtimiento parcial. Faltan unidades."
                 };
             } else {
                 updatePayload = {
                     estado: 'Surtido',
                     tiene_alerta: false,
-                    alerta_msg: null
+                    alerta_msg: notas || null
                 };
             }
             
