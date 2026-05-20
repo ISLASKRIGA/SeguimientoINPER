@@ -30,7 +30,7 @@ async function fetchRecetas() {
         }));
         
         renderTable();
-        if (typeof updateCharts === 'function') updateCharts();
+        updateStats();
     } catch (err) {
         console.error('Error fetching from Supabase:', err);
         // Note: showAlert might not be defined if called too early, but usually it is.
@@ -347,19 +347,46 @@ async function processSurtimiento(type) {
     }
 }
 
+let surtimientoChart = null;
+
 function updateStats() {
-    const today = new Date().toISOString().split('T')[0];
-    const todays = db.recetas.filter(r => r.fecha.startsWith(today)).length;
-    const surtidas = db.recetas.filter(r => r.estado === 'Surtido').length;
+    const surtidas  = db.recetas.filter(r => r.estado === 'Surtido').length;
+    const parciales = db.recetas.filter(r => r.estado === 'Observada').length;
     const pendientes = db.recetas.filter(r => r.estado === 'Pendiente').length;
-    
-    // Just a visual mock update for stat values
-    const statValues = document.querySelectorAll('.stat-value');
-    if(statValues.length >= 3) {
-        statValues[0].innerText = 124 + db.recetas.length; // Fake total increment
-        statValues[1].innerText = surtidas + 97; // Arbitrary offset for demo
-        statValues[2].innerText = pendientes;
-    }
+    const total = db.recetas.length;
+
+    // Update KPI cards
+    const elSurt = document.getElementById('kpi-surtidas');
+    const elParc = document.getElementById('kpi-parciales');
+    const elPend = document.getElementById('kpi-pendientes');
+    const elTot  = document.getElementById('kpi-total');
+    if (elSurt) elSurt.innerText = surtidas;
+    if (elParc) elParc.innerText = parciales;
+    if (elPend) elPend.innerText = pendientes;
+    if (elTot)  elTot.innerText  = total;
+
+    // Update / create bar chart
+    const canvas = document.getElementById('chartSurtimiento');
+    if (!canvas) return;
+    if (surtimientoChart) surtimientoChart.destroy();
+    surtimientoChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: ['Surtidas', 'Parciales', 'Pendientes'],
+            datasets: [{
+                data: [surtidas, parciales, pendientes],
+                backgroundColor: ['#4ade80', '#fb923c', '#60a5fa'],
+                borderRadius: 8,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
 }
 
 // Initial initialization

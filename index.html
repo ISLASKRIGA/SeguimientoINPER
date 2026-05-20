@@ -48,28 +48,34 @@
                     <p class="subtitle">Estatus de recetas y alternativas terapéuticas</p>
                 </div>
 
+                <!-- KPIs dinámicos basados en Supabase -->
                 <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 20px;">
                     <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
                         <i class="ph-fill ph-check-circle" style="font-size: 32px; color: var(--green);"></i>
-                        <h3 style="margin: 8px 0 4px; font-size: 24px;">85%</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Surtidas Completas</p>
+                        <h3 id="kpi-surtidas" style="margin: 8px 0 4px; font-size: 24px;">0</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Surtidas</p>
                     </div>
                     <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
                         <i class="ph-fill ph-warning-circle" style="font-size: 32px; color: var(--orange);"></i>
-                        <h3 style="margin: 8px 0 4px; font-size: 24px;">12%</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Surtidas Parciales</p>
+                        <h3 id="kpi-parciales" style="margin: 8px 0 4px; font-size: 24px;">0</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Parciales</p>
                     </div>
                     <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
-                        <i class="ph-fill ph-x-circle" style="font-size: 32px; color: var(--red);"></i>
-                        <h3 style="margin: 8px 0 4px; font-size: 24px; color: var(--red);">3%</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">No Surtidas</p>
+                        <i class="ph-fill ph-clock" style="font-size: 32px; color: var(--blue);"></i>
+                        <h3 id="kpi-pendientes" style="margin: 8px 0 4px; font-size: 24px;">0</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Pendientes</p>
+                    </div>
+                    <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
+                        <i class="ph-fill ph-list-numbers" style="font-size: 32px; color: var(--purple);"></i>
+                        <h3 id="kpi-total" style="margin: 8px 0 4px; font-size: 24px;">0</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Total Recetas</p>
                     </div>
                 </div>
 
                 <div class="charts-layout" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 30px;">
                     <div class="card form-block" style="margin:0;">
                         <div class="form-block-header blue">
-                            <i class="ph-bold ph-pill"></i> Detalle de Medicamentos No Surtidos
+                            <i class="ph-bold ph-pill"></i> Detalle de Surtimiento
                         </div>
                         <div style="padding: 16px; position: relative; height: 230px; display: flex; justify-content: center;">
                             <canvas id="chartSurtimiento"></canvas>
@@ -77,103 +83,6 @@
                         <div style="padding: 0 16px 16px 16px; font-size: 13px; color: var(--text-muted); text-align: center;">
                             <i class="ph-bold ph-info"></i> No se considera receta no surtida cuando se le da una alternativa.
                         </div>
-                    </div>
-                </div>
-
-                <div class="page-title-area">
-                    <h1>Impacto Clínico General <i class="ph-fill ph-chart-pie-slice" style="color: var(--blue);"></i></h1>
-                    <p class="subtitle">Estadísticas SFT por Área, Médico y Tipo de Intervención</p>
-                </div>
-
-                <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 20px;">
-                    <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
-                        <i class="ph-fill ph-check-circle" style="font-size: 32px; color: var(--green);"></i>
-                        <h3 style="margin: 8px 0 4px; font-size: 24px;">87%</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Aceptación Global</p>
-                    </div>
-                    <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
-                        <i class="ph-fill ph-users-three" style="font-size: 32px; color: var(--blue);"></i>
-                        <h3 style="margin: 8px 0 4px; font-size: 24px;">142</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Pacientes SFT</p>
-                    </div>
-                    <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
-                        <i class="ph-fill ph-warning-octagon" style="font-size: 32px; color: var(--purple);"></i>
-                        <h3 style="margin: 8px 0 4px; font-size: 24px; color: var(--purple);">64</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">PRMs Resueltos</p>
-                    </div>
-                </div>
-
-                <div class="charts-layout" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px;">
-                    <div class="card form-block" style="margin:0;">
-                        <div class="form-block-header purple">
-                            <i class="ph-bold ph-chart-pie"></i> Origen de PRM (RNM)
-                        </div>
-                        <div style="padding: 16px; position: relative; height: 230px; display: flex; justify-content: center;">
-                            <canvas id="chartPRM"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div class="card form-block" style="margin:0;">
-                        <div class="form-block-header blue">
-                            <i class="ph-bold ph-first-aid"></i> Acciones Farmacéuticas Top
-                        </div>
-                        <div style="padding: 16px;">
-                            <div style="margin-bottom: 12px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-weight:800; font-size:13px;"><span>Educación al Paciente</span> <span>45%</span></div>
-                                <div style="height:10px; background:#eee; border-radius:5px; overflow:hidden;"><div style="height:100%; width:45%; background:var(--blue);"></div></div>
-                            </div>
-                            <div style="margin-bottom: 12px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-weight:800; font-size:13px;"><span>Ajuste de Dosis</span> <span>30%</span></div>
-                                <div style="height:10px; background:#eee; border-radius:5px; overflow:hidden;"><div style="height:100%; width:30%; background:var(--orange);"></div></div>
-                            </div>
-                            <div style="margin-bottom: 12px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-weight:800; font-size:13px;"><span>Sustitución de Medicamento</span> <span>25%</span></div>
-                                <div style="height:10px; background:#eee; border-radius:5px; overflow:hidden;"><div style="height:100%; width:25%; background:var(--purple);"></div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="charts-layout" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 30px;">
-                    <div class="card form-block" style="margin:0;">
-                        <div class="form-block-header orange">
-                            <i class="ph-bold ph-bed"></i> SFT por Servicio Hospitalario
-                        </div>
-                        <div style="padding: 16px; position: relative; height: 200px;">
-                            <canvas id="chartServicios"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="card form-block" style="margin:0;">
-                        <div class="form-block-header green">
-                            <i class="ph-bold ph-stethoscope"></i> Médicos Intervenidos (Top Aceptación)
-                        </div>
-                        <ul style="list-style: none; padding: 16px; margin: 0; display:flex; flex-direction:column; gap:12px;">
-                            <li style="display:flex; align-items:center; gap:12px; background:var(--bg-base); padding:10px; border-radius:var(--radius-md); border:1px solid var(--border);">
-                                <i class="ph-fill ph-medal" style="font-size:24px; color:#FFC107;"></i>
-                                <div style="flex:1;">
-                                    <div style="font-weight:800; font-size:14px;">Dr. R. Medina</div>
-                                    <div style="font-size:12px; color:var(--text-muted);">Medicina Interna</div>
-                                </div>
-                                <span style="background:var(--green); color:white; padding:4px 8px; border-radius:8px; font-weight:800; font-size:13px;">94%</span>
-                            </li>
-                            <li style="display:flex; align-items:center; gap:12px; background:var(--bg-base); padding:10px; border-radius:var(--radius-md); border:1px solid var(--border);">
-                                <i class="ph-fill ph-medal" style="font-size:24px; color:#C0C0C0;"></i>
-                                <div style="flex:1;">
-                                    <div style="font-weight:800; font-size:14px;">Dra. S. Juárez</div>
-                                    <div style="font-size:12px; color:var(--text-muted);">Cirugía Pélvica</div>
-                                </div>
-                                <span style="background:var(--green); color:white; padding:4px 8px; border-radius:8px; font-weight:800; font-size:13px;">88%</span>
-                            </li>
-                            <li style="display:flex; align-items:center; gap:12px; background:var(--bg-base); padding:10px; border-radius:var(--radius-md); border:1px solid var(--border);">
-                                <i class="ph-fill ph-medal" style="font-size:24px; color:#CD7F32;"></i>
-                                <div style="flex:1;">
-                                    <div style="font-weight:800; font-size:14px;">Dr. A. Gómez</div>
-                                    <div style="font-size:12px; color:var(--text-muted);">Ginecología</div>
-                                </div>
-                                <span style="background:var(--orange); color:white; padding:4px 8px; border-radius:8px; font-weight:800; font-size:13px;">65%</span>
-                            </li>
-                        </ul>
                     </div>
                 </div>
 
