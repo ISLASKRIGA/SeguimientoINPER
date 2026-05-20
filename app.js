@@ -1,6 +1,6 @@
 const supabaseUrl = 'https://plnzmmkgabggydakytsn.supabase.co';
 const supabaseKey = 'sb_publishable_Y1coOJQ0nH1EhPsUeZr87g_KdLUywT1';
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+const dbClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 let db = {
     recetas: []
@@ -9,7 +9,7 @@ let db = {
 // Fetch data from Supabase
 async function fetchRecetas() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('recetas')
             .select('*')
             .order('fecha', { ascending: false });
@@ -231,7 +231,7 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
     };
 
     try {
-        const { error } = await supabase.from('recetas').insert([newRecord]);
+        const { error } = await dbClient.from('recetas').insert([newRecord]);
         if (error) throw error;
 
         if(!hasYellowAlert) {
@@ -328,7 +328,7 @@ async function processSurtimiento(type) {
                 };
             }
             
-            const { error } = await supabase
+            const { error } = await dbClient
                 .from('recetas')
                 .update(updatePayload)
                 .eq('id', currentSurtimientoId);
