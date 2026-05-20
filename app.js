@@ -138,11 +138,33 @@ document.getElementById('receta-form').addEventListener('submit', (e) => {
     const medico = document.getElementById('medico').value;
     
     // Gather meds
-    const medInputs = document.querySelectorAll('.med-name');
-    const medNames = Array.from(medInputs).map(inp => inp.value.trim().toLowerCase());
+    const medItems = document.querySelectorAll('.prescription-item');
+    const medicamentosObj = Array.from(medItems).map(item => {
+        const nombre = (item.querySelector('.med-name')?.value || '').trim();
+        const dosis = parseInt(item.querySelector('.med-dosis')?.value) || 1;
+        const freqVal = item.querySelector('.med-freq')?.value || '24h';
+        const cantidad = parseInt(item.querySelector('.med-cantidad')?.value) || 1;
+        
+        let freqNum = 1;
+        if (freqVal === '12h') freqNum = 2;
+        if (freqVal === '8h') freqNum = 3;
+        if (freqVal === '6h') freqNum = 4;
 
-    if(medNames.length === 0 || medNames[0] === '') {
-        showAlert('Agregue al menos un medicamento válido', 'yellow');
+        const diasCobertura = Math.floor(cantidad / (dosis * freqNum)) || 1;
+        
+        const fechaFin = new Date();
+        fechaFin.setDate(fechaFin.getDate() + diasCobertura);
+
+        return {
+            nombre,
+            diasCobertura,
+            fechaFinCobertura: fechaFin.toISOString(),
+            originalStr: nombre
+        };
+    }).filter(m => m.nombre !== '');
+
+    if(medicamentosObj.length === 0) {
+        showAlert('Agregue al menos un medicamento válido y sus cantidades', 'yellow');
         return;
     }
 
@@ -154,27 +176,38 @@ document.getElementById('receta-form').addEventListener('submit', (e) => {
 
     for (const r of db.recetas) {
         if (r.expediente.toUpperCase() === exp) {
-            // Check meds
-            const prevMeds = r.medicamentos.map(m => m.toLowerCase());
-            const intersection = medNames.filter(m => prevMeds.includes(m));
+            // Support both old string array and new object array for prevMeds
+            const prevMeds = r.medicamentos.map(m => {
+                if (typeof m === 'string') return { nombre: m.toLowerCase(), fechaFinCobertura: null };
+                return { nombre: m.nombre.toLowerCase(), fechaFinCobertura: m.fechaFinCobertura };
+            });
             
-            if (intersection.length > 0) {
-                if (r.estado === 'Surtido') {
-                    hasRedAlert = true;
-                    // Format names properly
-                    const conflictName = intersection[0].charAt(0).toUpperCase() + intersection[0].slice(1);
-                    conflictMsg = `El medicamento ${conflictName} ya fue surtido recientemente para este paciente (Folio: ${r.folio}).`;
-                } else if (r.estado === 'Pendiente') {
-                    hasYellowAlert = true;
-                    const conflictName = intersection[0].charAt(0).toUpperCase() + intersection[0].slice(1);
-                    conflictMsg = `Existe una prescripción activa (${r.folio}) de ${conflictName} sin surtir para este paciente.`;
+            for (const newMed of medicamentosObj) {
+                const match = prevMeds.find(pm => pm.nombre === newMed.nombre.toLowerCase());
+                if (match) {
+                    if (r.estado === 'Surtido') {
+                        if (match.fechaFinCobertura) {
+                            const finDate = new Date(match.fechaFinCobertura);
+                            if (new Date() <= finDate) {
+                                hasRedAlert = true;
+                                const diasRestantes = Math.ceil((finDate - new Date()) / (1000 * 60 * 60 * 24));
+                                conflictMsg = `El paciente tiene ${newMed.nombre} cubierto por ${diasRestantes} días más (Surtido en Folio: ${r.folio}).`;
+                            }
+                        } else {
+                            hasRedAlert = true;
+                            conflictMsg = `El medicamento ${newMed.nombre} ya fue surtido recientemente para este paciente (Folio: ${r.folio}).`;
+                        }
+                    } else if (r.estado === 'Pendiente') {
+                        hasYellowAlert = true;
+                        conflictMsg = `Existe una prescripción activa (${r.folio}) de ${newMed.nombre} sin surtir para este paciente.`;
+                    }
                 }
             }
         }
     }
 
     if (hasRedAlert) {
-        showAlert('Alerta Roja: Surtimiento Duplicado. ' + conflictMsg, 'red');
+        showAlert('Alerta Roja: Medicamento Aún Vigente. ' + conflictMsg, 'red');
         return; // Prevent saving
     }
 
@@ -192,7 +225,7 @@ document.getElementById('receta-form').addEventListener('submit', (e) => {
         medico: medico,
         estado: "Pendiente",
         fecha: new Date().toISOString(),
-        medicamentos: Array.from(medInputs).map(inp => inp.value),
+        medicamentos: medicamentosObj,
         tieneAlerta: hasYellowAlert,
         alertaMsg: conflictMsg
     };
@@ -255,7 +288,7 @@ function openSurtimientoModal(id) {
         <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border);">
         <h4 style="margin-bottom:10px;">Prescripción a entregar:</h4>
         <ul style="padding-left:15px; color:var(--primary); font-weight:500;">
-            ${r.medicamentos.map(m => `<li>${m}</li>`).join('')}
+            ${r.medicamentos.map(m => `<li>${typeof m === 'string' ? m : m.originalStr || m.nombre}</li>`).join('')}
         </ul>
     `;
     document.getElementById('modal-details').innerHTML = detailsHTML;

@@ -205,13 +205,131 @@
                                 </div>
                                 <div class="form-group span-2">
                                     <label>Servicio</label>
-                                    <select id="servicio" required class="ios-input">
-                                        <option value="">Seleccione...</option>
-                                        <option value="Perinatología">Perinatología</option>
-                                        <option value="Obstetricia">Obstetricia</option>
-                                        <option value="Ginecología">Ginecología</option>
-                                        <option value="Urgencias">Urgencias</option>
-                                    </select>
+                                    <input type="text" id="servicio" list="servicios-list" required placeholder="Escriba para buscar servicio..." autocomplete="off" class="ios-input">
+                                    <datalist id="servicios-list">
+                                        <option value="1000 - DIRECCION GENERAL">
+                                        <option value="1001 - COORDINACION DE COMUNICACION SOCIAL">
+                                        <option value="1100 - DEPARTAMENTO DE ASUNTOS JURIDICOS">
+                                        <option value="2000 - DIRECCION MEDICA">
+                                        <option value="2002 - DAMAS VOLUNTARIAS">
+                                        <option value="2003 - COORDINACION DE SALUD REPROD. Y CONSULTA EXTERNA">
+                                        <option value="2011 - CENTRAL DE ESTERILIZACION Y EQUIPO">
+                                        <option value="2020 - DEPARTAMENTO DE TRABAJO SOCIAL">
+                                        <option value="2030 - UNIDAD DE ENFERMEDADES INFECC. Y EPIDEMIOLOGIA">
+                                        <option value="2031 - COORDINACION DE EPIDEMIOLOGIA HOSPITALARIA">
+                                        <option value="2032 - COORDINACION DE INFECTOLOGIA CLINICA">
+                                        <option value="2040 - DEPARTAMENTO DE MEDICINA CRITICA">
+                                        <option value="2050 - DEPTO. DE GESTION TEC. MEDICO ADMVA. MED. PERINATAL Y GINECOLOGIA">
+                                        <option value="2100 - SUBDIRECCION DE REPRODUCCION HUMANA">
+                                        <option value="2120 - DEPARTAMENTO DE GINECOLOGIA REPRODUCTIVA">
+                                        <option value="2121 - COORDINACION DE ANDROLOGIA E INFERTILIDAD">
+                                        <option value="2122 - COORDINACION DE REPRODUCCION ASISTIDA">
+                                        <option value="2123 - COORDINACION DE ENDOCRINOLOGIA">
+                                        <option value="2124 - COORDINACION DE CLIMATERIO">
+                                        <option value="2130 - DEPARTAMENTO DE GINECOLOGIA QUIRURGICA">
+                                        <option value="2131 - COORDINACION DE ONCOLOGIA">
+                                        <option value="2132 - COORDINACION DE UROLOGIA GINECOLOGICA">
+                                        <option value="2133 - COORDINACION DE CIRUGIA PELVICA AVANZADA">
+                                        <option value="2200 - SUBDIRECCION DE GINECOLOGIA Y OBSTETRICIA">
+                                        <option value="2210 - DEPARTAMENTO DE OBSTETRICIA">
+                                        <option value="2211 - COORDINACION DE MED. DE LA ADOLESCENTE">
+                                        <option value="2230 - DEPARTAMENTO DE MEDICINA MATERNO FETAL">
+                                        <option value="2231 - COORDINACION DE GENETICA CLINICA">
+                                        <option value="2240 - DEPARTAMENTO DE NEUROCIENCIAS">
+                                        <option value="2241 - COORDINACION DE PSICOLOGIA Y PSIQUIATRIA">
+                                        <option value="2242 - COORDINACION DE NEUROLOGIA">
+                                        <option value="2250 - DEPARTAMENTO DE TOCOCIRUGIA Y URGENCIAS">
+                                        <option value="2270 - DEPARTAMENTO DE ANESTESIOLOGIA">
+                                        <option value="2300 - SUBDIRECCION DE NEONATOLOGIA">
+                                        <option value="2301 - COORDINACION DE CUIDADOS INMEDIATOS AL RECIEN NACIDO">
+                                        <option value="2302 - COORDINACION DE BANCO DE LECHE">
+                                        <option value="2310 - DEPARTAMENTO DE CUIDADOS INTEN. NEONATALES">
+                                        <option value="2311 - COORDINACION DE INHALOTERAPIA">
+                                        <option value="2320 - DEPARTAMENTO DE CUIDADOS INTERM. AL RECIEN NACIDO">
+                                        <option value="2321 - COORDINACION DE TRANSPORTE NEONATAL">
+                                        <option value="2330 - DEPARTAMENTO DE ALOJAMIENTO CONJUNTO">
+                                        <option value="2340 - DEPARTAMENTO DE SEGUIMIENTO PEDIATRICO">
+                                        <option value="2341 - COORDINACION DE TAMIZ NEONATAL INTEGRAL">
+                                        <option value="2400 - SUBDIRECCION DE SERVICIOS AUXILIARES DE DIAGNOSTICO">
+                                        <option value="2401 - COORDINACION DE FARMACOLOGIA CLINICA">
+                                        <option value="2410 - DEPARTAMENTO DE DIAGNOSTICO POR IMAGEN">
+                                        <option value="2420 - DEPARTAMENTO DE ANATOMIA PATOLOGICA">
+                                        <option value="2430 - DEPARTAMENTO DE LABORATORIO CENTRAL">
+                                        <option value="2431 - COORDINACION DE BANCO DE SANGRE">
+                                        <option value="2441 - COORDINACION DE OFTALMOLOGIA">
+                                        <option value="2442 - COORDINACION DE DERMATOLOGIA">
+                                        <option value="2443 - OFICINA DE ARCHIVO CLINICO">
+                                        <option value="2444 - COORDINACION DE ESTOMATOLOGIA">
+                                        <option value="2450 - DEPARTAMENTO DE INGENIERIA BIOMEDICA">
+                                        <option value="2500 - SUBDIRECCION DE ENFERMERIA">
+                                        <option value="2510 - DEPARTAMENTO DE ENSEÑANZA EN ENFERMERIA">
+                                        <option value="2520 - DEPARTAMENTO DE INVESTIGACION EN ENFERMERIA">
+                                        <option value="2530 - DEPARTAMENTO DE GESTION DEL CUIDADO">
+                                        <option value="3000 - DIRECCION DE INVESTIGACION">
+                                        <option value="3010 - DEPARTAMENTO DE GESTION DE LA INVESTIGACION">
+                                        <option value="3100 - SUBDIRECCION DE INVESTIGACION CLINICA">
+                                        <option value="3101 - COORDINACION DE HEMATOLOGIA PERINATAL">
+                                        <option value="3102 - COORDINACION DE INVESTIGACION EN PSICOLOGIA">
+                                        <option value="3103 - COORDINACION DE ENDOCRINO.GINECOL.PERINATAL">
+                                        <option value="3104 - COORDINACION DE NUTRICION Y BIOPROGRAMACION">
+                                        <option value="3120 - DEPARTAMENTO DE INFECT. E INMUNO. PERINATAL">
+                                        <option value="3140 - DEPARTAMENTO DE INVEST. EN SALUD REPROD. Y PERINATAL">
+                                        <option value="3150 - DEPARTAMENTO DE BIOINFORMATICA Y ANALISIS ESTADISTICOS">
+                                        <option value="3160 - DEPARTAMENTO DE MEDICINA TRASLACIONAL">
+                                        <option value="3170 - DEPARTAMENTO DE NEUROBIOLOGIA DEL DESARROLLO">
+                                        <option value="3200 - SUBDIRECCION DE INVESTIGACION BIOMEDICA">
+                                        <option value="3210 - DEPARTAMENTO DE INMUNO-BIOQUIMICA">
+                                        <option value="3230 - DEPARTAMENTO DE FISIOLOGIA Y DESARROLLO CELULAR">
+                                        <option value="4000 - DIRECCION DE EDUCACION EN CIENCIAS DE LA SALUD">
+                                        <option value="4100 - SUBDIRECCION ACADEMICA">
+                                        <option value="4101 - COORDINACION DE ESTADISTICA DE PRODUCTIVIDAD EN ENSEÑANZA">
+                                        <option value="4102 - COORDINACION DE EDUCACION LACTANCIA MATERNA">
+                                        <option value="4103 - COORDINACION DE ANALISIS PSICO-INSTIT.EDUCACION">
+                                        <option value="4110 - DEPARTAMENTO DE PROG. ACADEM. EDUC. CONT.">
+                                        <option value="4120 - DEPARTAMENTO DE POSGRADO E INVESTIGACION">
+                                        <option value="4130 - DEPARTAMENTO DE VINCULACION INSTITUCIONAL">
+                                        <option value="4200 - SUBDIRECCION DE INTERCAMBIO Y VINCULACION">
+                                        <option value="4201 - COORDINACION DE BIBLIOTECA">
+                                        <option value="4210 - DEPARTAMENTO DE FOMENTO Y HERRAMIENTAS EDUCATIVAS">
+                                        <option value="4230 - DEPARTAMENTO DE IMAGEN INSTITUCIONAL">
+                                        <option value="5000 - DIRECCION DE ADMINISTRACION Y FINANZAS">
+                                        <option value="5010 - DEPARTAMENTO DE TECNOLOGIAS DE LA INFORMACION">
+                                        <option value="5100 - SUBDIRECCION DE ADMON. Y DESARROLLO DE PERSONAL">
+                                        <option value="5110 - DEPARTAMENTO DE REMUNERACIONES">
+                                        <option value="5120 - DEPARTAMENTO DE RELACIONES LABORALES">
+                                        <option value="5130 - DEPTO. DE CAPACIT. CALIDAD Y DES.PERS.">
+                                        <option value="5200 - SUBDIRECCION DE RECURSOS FINANCIEROS">
+                                        <option value="5210 - DEPTO. DE PROGRAMACION Y PRESUPUESTACION">
+                                        <option value="5220 - DEPARTAMENTO DE CONTABILIDAD">
+                                        <option value="5230 - DEPARTAMENTO DE TESORERIA">
+                                        <option value="5300 - SUBDIRECCION DE RECURSOS MATERIALES Y CONSERVACION">
+                                        <option value="5310 - DEPARTAMENTO DE CONSERV. Y MANTENIMIENTO">
+                                        <option value="5320 - DEPARTAMENTO DE SERVICIOS">
+                                        <option value="5321 - OFICINA DE LAVANDERIA Y ROPERIA">
+                                        <option value="5340 - DEPARTAMENTO DE ADQUISICIONES">
+                                        <option value="5350 - DEPARTAMENTO DE ALMACEN FARMACIA E INVENTARIOS">
+                                        <option value="5700 - SUTINPer">
+                                        <option value="6000 - OFICINA DE REPRESENTACIÓN EN EL INPer">
+                                        <option value="6010 - AREA DE AUDITORIA INTERNA DESARROLLO Y MEJORA DE LA GEST. PUB">
+                                        <option value="6020 - AREA DE RESPONSABILIDADES">
+                                        <option value="6030 - AREA DE QUEJAS, DENUNCIAS E INVESTIGACION">
+                                        <option value="7777 - FORMATOS">
+                                        <option value="9000 - DIRECCION DE PLANEACION">
+                                        <option value="9030 - DEPARTAMENTO DE GESTION DE LA INFORMACION">
+                                        <option value="9100 - SUBDIRECCION DE DESARROLLO ORGANIZACIONAL">
+                                        <option value="9101 - DEPARTAMENTO DE ESTRATEGIAS ORGANIZACIONALES">
+                                        <option value="9102 - DEPARTAMENTO DE OPERACION DE PROG. GUBERNAM">
+                                        <option value="9103 - DEPARTAMENTO DE ORIENTACION A PACIENTES Y EVALUACION MED">
+                                        <option value="9105 - DEPARTAMENTO DE GESTION DE LA CALIDAD">
+                                        <option value="9106 - DEPARTAMENTO DE ORGANIZACION Y METODOS">
+                                        <option value="9110 - COORDINACION DE FARMACIA HOSPITALARIA">
+                                        <option value="9901 - ABASTO DE MEDICAMENTOS">
+                                        <option value="9902 - PREVENCION DEL VIH/SIDA">
+                                        <option value="9903 - MANTENIMIENTO INMUEBLES">
+                                        <option value="9906 - CAPACITAR AL PERSONAL MEDICO">
+                                        <option value="9909 - DIRECCION DE INVESTIGACION">
+                                        <option value="9910 - DIRECCION DE INVESTIGACION">
+                                    </datalist>
                                 </div>
                             </div>
                         </div>
@@ -227,9 +345,9 @@
                                     </div>
                                     <div class="med-row">
                                         <div class="form-group small">
-                                            <label>Dosis</label>
-                                            <input type="text" class="med-dosis ios-input" required
-                                                placeholder="Ej. 1 tab">
+                                            <label>Dosis (Unidades)</label>
+                                            <input type="number" min="1" class="med-dosis ios-input" required
+                                                placeholder="Ej. 1" value="1">
                                         </div>
                                         <div class="form-group small">
                                             <label>Frecuencia</label>
@@ -237,7 +355,13 @@
                                                 <option value="24h">c/24h</option>
                                                 <option value="12h">c/12h</option>
                                                 <option value="8h">c/8h</option>
+                                                <option value="6h">c/6h</option>
                                             </select>
+                                        </div>
+                                        <div class="form-group small">
+                                            <label>Total Entregado</label>
+                                            <input type="number" min="1" class="med-cantidad ios-input" required
+                                                placeholder="Ej. 30">
                                         </div>
                                     </div>
                                     <button type="button" class="btn-icon danger remove-med"><i
