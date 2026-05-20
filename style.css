@@ -318,6 +318,46 @@ body {
     margin-bottom: 24px;
 }
 
+/* Dashboard recetas table */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.table thead th {
+    background: var(--bg-base);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+}
+.table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+}
+.table tbody tr:last-child { border-bottom: none; }
+.table tbody tr:hover { background: var(--bg-base); }
+.table tbody td {
+    padding: 10px 14px;
+    vertical-align: middle;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.table tbody td:first-child { font-weight: 800; }
+/* Folio column narrower */
+.table tbody td:nth-child(1) { max-width: 100px; }
+/* Expediente */
+.table tbody td:nth-child(2) { max-width: 100px; color: var(--text-muted); }
+/* Last column (action) don't clip */
+.table tbody td:last-child { max-width: none; white-space: nowrap; }
+
 /* Tables morphed into List items for Mobile iOS feel */
 .table-container {
     background: var(--bg-surface);
