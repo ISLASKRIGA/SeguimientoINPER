@@ -98,7 +98,7 @@ function renderTable() {
         if(r.estado === 'Pendiente' || r.estado === 'Observada') {
             actionBtn = `<button class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;" onclick="openSurtimientoModal('${r.id}')">Atender</button>`;
         } else {
-            actionBtn = `<button class="btn btn-outline" style="padding: 8px; border-radius: 50%;"><i class="ph-bold ph-eye"></i></button>`;
+            actionBtn = `<button class="btn btn-outline" style="padding: 8px 16px; font-size: 14px;" onclick="openDetalleModal('${r.id}')"><i class="ph-bold ph-eye"></i> Ver</button>`;
         }
 
         const tr = document.createElement('tr');
@@ -307,6 +307,38 @@ function openSurtimientoModal(id) {
         </ul>
     `;
     document.getElementById('modal-details').innerHTML = detailsHTML;
+    // Show action buttons and notes (it's an active recipe)
+    document.querySelector('#surtimiento-modal .modal-footer').style.display = '';
+    document.querySelector('#surtimiento-modal [id="surtimiento-notas"]').closest('div').style.display = '';
+    document.getElementById('surtimiento-modal').classList.add('active');
+}
+
+function openDetalleModal(id) {
+    const r = db.recetas.find(x => x.id === id);
+    if (!r) return;
+
+    const fecha = new Date(r.fecha).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    const estadoColor = r.estado === 'Surtido' ? 'var(--green)' : r.estado === 'Observada' ? 'var(--orange)' : 'var(--blue)';
+
+    const detailsHTML = `
+        <div class="info-row"><span class="info-label">Folio:</span> <span class="info-val">${r.folio}</span></div>
+        <div class="info-row"><span class="info-label">Expediente:</span> <span class="info-val">${r.expediente}</span></div>
+        <div class="info-row"><span class="info-label">Paciente:</span> <span class="info-val">${r.paciente}</span></div>
+        <div class="info-row"><span class="info-label">Médico:</span> <span class="info-val">${r.medico}</span></div>
+        <div class="info-row"><span class="info-label">Fecha:</span> <span class="info-val">${fecha}</span></div>
+        <div class="info-row"><span class="info-label">Estado:</span> <span class="info-val" style="color:${estadoColor}; font-weight:800;">${r.estado}</span></div>
+        <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border);">
+        <h4 style="margin-bottom:10px;">Medicamentos:</h4>
+        <ul style="padding-left:15px; color:var(--primary); font-weight:500;">
+            ${r.medicamentos.map(m => `<li>${typeof m === 'string' ? m : m.originalStr || m.nombre}</li>`).join('')}
+        </ul>
+        ${r.alerta_msg ? `<div style="margin-top:12px; padding:10px; background:#fff8e1; border-radius:8px; border-left:3px solid var(--orange); font-size:13px;"><b>Observaciones:</b> ${r.alerta_msg}</div>` : ''}
+    `;
+    document.getElementById('modal-details').innerHTML = detailsHTML;
+    document.getElementById('surtimiento-modal').querySelector('h2').innerText = 'Detalle de Receta';
+    // Hide action buttons in view mode
+    document.querySelector('#surtimiento-modal .modal-footer').style.display = 'none';
+    document.querySelector('#surtimiento-modal [id="surtimiento-notas"]').closest('div').style.display = 'none';
     document.getElementById('surtimiento-modal').classList.add('active');
 }
 
@@ -314,6 +346,11 @@ function closeModal() {
     document.getElementById('surtimiento-modal').classList.remove('active');
     const notasEl = document.getElementById('surtimiento-notas');
     if (notasEl) notasEl.value = '';
+    // Restore modal to default state for next open
+    document.getElementById('surtimiento-modal').querySelector('h2').innerText = 'Surtimiento';
+    document.querySelector('#surtimiento-modal .modal-footer').style.display = '';
+    const notasWrap = document.querySelector('#surtimiento-modal [id="surtimiento-notas"]');
+    if (notasWrap) notasWrap.closest('div').style.display = '';
     currentSurtimientoId = null;
 }
 
