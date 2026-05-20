@@ -96,7 +96,7 @@ function renderTable() {
 
         let actionBtn = '';
         if(r.estado === 'Pendiente' || r.estado === 'Observada') {
-            actionBtn = `<button class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;" onclick="openSurtimientoModal(${r.id})">Atender</button>`;
+            actionBtn = `<button class="btn btn-secondary" style="padding: 8px 16px; font-size: 14px;" onclick="openSurtimientoModal('${r.id}')">Atender</button>`;
         } else {
             actionBtn = `<button class="btn btn-outline" style="padding: 8px; border-radius: 50%;"><i class="ph-bold ph-eye"></i></button>`;
         }
