@@ -557,4 +557,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Surtimiento Bar Chart
+    const ctxSurtimiento = document.getElementById('chartSurtimiento');
+    if (ctxSurtimiento) {
+        new Chart(ctxSurtimiento, {
+            type: 'bar',
+            data: {
+                labels: ['Surtidos', 'No Surtidos (Sin Alt.)', 'Con Alternativa'],
+                datasets: [{
+                    label: 'Medicamentos',
+                    data: [850, 30, 120],
+                    backgroundColor: ['#58cc02', '#ff4b4b', '#1cb0f6'],
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
 });

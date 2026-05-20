@@ -44,6 +44,43 @@
             <!-- Dashboard View -->
             <div class="view-section active" id="view-dashboard">
                 <div class="page-title-area">
+                    <h1>Surtimiento <i class="ph-fill ph-prescription" style="color: var(--green);"></i></h1>
+                    <p class="subtitle">Estatus de recetas y alternativas terapéuticas</p>
+                </div>
+
+                <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                    <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
+                        <i class="ph-fill ph-check-circle" style="font-size: 32px; color: var(--green);"></i>
+                        <h3 style="margin: 8px 0 4px; font-size: 24px;">85%</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Surtidas Completas</p>
+                    </div>
+                    <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
+                        <i class="ph-fill ph-warning-circle" style="font-size: 32px; color: var(--orange);"></i>
+                        <h3 style="margin: 8px 0 4px; font-size: 24px;">12%</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">Surtidas Parciales</p>
+                    </div>
+                    <div style="background: white; border-radius: var(--radius-xl); padding: 16px; border: 2px solid var(--border); text-align: center;">
+                        <i class="ph-fill ph-x-circle" style="font-size: 32px; color: var(--red);"></i>
+                        <h3 style="margin: 8px 0 4px; font-size: 24px; color: var(--red);">3%</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); font-weight: 800;">No Surtidas</p>
+                    </div>
+                </div>
+
+                <div class="charts-layout" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 30px;">
+                    <div class="card form-block" style="margin:0;">
+                        <div class="form-block-header blue">
+                            <i class="ph-bold ph-pill"></i> Detalle de Medicamentos No Surtidos
+                        </div>
+                        <div style="padding: 16px; position: relative; height: 230px; display: flex; justify-content: center;">
+                            <canvas id="chartSurtimiento"></canvas>
+                        </div>
+                        <div style="padding: 0 16px 16px 16px; font-size: 13px; color: var(--text-muted); text-align: center;">
+                            <i class="ph-bold ph-info"></i> No se considera receta no surtida cuando se le da una alternativa.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-title-area">
                     <h1>Impacto Clínico General <i class="ph-fill ph-chart-pie-slice" style="color: var(--blue);"></i></h1>
                     <p class="subtitle">Estadísticas SFT por Área, Médico y Tipo de Intervención</p>
                 </div>
