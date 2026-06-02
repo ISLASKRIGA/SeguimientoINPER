@@ -118,7 +118,7 @@ function renderTable() {
     tbody.innerHTML = '';
     
     // Sort logic (newest first)
-    const sorted = [...db.recetas].sort((a,b) => b.id - a.id);
+    const sorted = [...db.recetas].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
     sorted.forEach(r => {
         // Build Status Tag
