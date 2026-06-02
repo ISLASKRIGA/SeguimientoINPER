@@ -216,6 +216,9 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
             caducidad,
             diasCobertura,
             fechaFinCobertura: fechaFin.toISOString(),
+            dosis,
+            frecuencia: freqVal,
+            cantidad,
             originalStr: `${nombre} ${clave ? `[Clave: ${clave}]` : ''} ${lote ? `[Lote: ${lote}]` : ''} ${caducidad ? `[Cad: ${caducidad}]` : ''}`.trim()
         };
     }).filter(m => m.nombre !== '');
@@ -714,25 +717,140 @@ window.loadPatientSFT = function() {
         return;
     }
 
-    const data = mockSFTData[term];
-    if(data) {
-        document.getElementById('sft-paciente-nombre').innerText = data.nombre;
+    // 1. Try to find real data in db.recetas
+    const patientRecipes = db.recetas.filter(r => r.expediente && r.expediente.trim().toUpperCase() === term);
+
+    if (patientRecipes.length > 0) {
+        // Sort recipes by date (oldest to newest) to correctly override treatments with newer prescriptions
+        const sortedRecipes = [...patientRecipes].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        const latestRecipe = sortedRecipes[sortedRecipes.length - 1];
+
+        // Basic Profile Info
+        document.getElementById('sft-paciente-nombre').innerText = latestRecipe.paciente || 'Paciente';
         document.getElementById('sft-paciente-exp').innerText = term;
+        document.getElementById('sft-paciente-servicio').innerText = "Consulta Externa"; // Default since DB doesn't store service
         
+        // Show/hide allergy alert if there's any alerts in the patient history
+        const hasAllergyAlert = sortedRecipes.some(r => r.tieneAlerta && r.alertaMsg && r.alertaMsg.toLowerCase().includes('alergia'));
+        const allergyBox = document.getElementById('sft-paciente-alergia-box');
+        if (hasAllergyAlert) {
+            if (allergyBox) allergyBox.style.display = 'flex';
+            const allergyEl = document.getElementById('sft-paciente-alergia');
+            if (allergyEl) allergyEl.innerText = "Alerta: Alergias reportadas";
+        } else {
+            // Check if patient is Elvira (mock is 138403010, which we handle in fallback, but just in case she's saved)
+            if (term === '138403010') {
+                if (allergyBox) allergyBox.style.display = 'flex';
+                const allergyEl = document.getElementById('sft-paciente-alergia');
+                if (allergyEl) allergyEl.innerText = "Alergia: Cefalosporinas";
+            } else {
+                if (allergyBox) allergyBox.style.display = 'none';
+            }
+        }
+
+        // Gather and deduplicate treatments (keep the latest for each unique medicine name)
+        const activeMedsMap = new Map();
+        sortedRecipes.forEach(r => {
+            if (Array.isArray(r.medicamentos)) {
+                r.medicamentos.forEach(m => {
+                    const medName = typeof m === 'string' ? m : m.nombre;
+                    if (!medName) return;
+                    const medKey = medName.toLowerCase().trim();
+                    
+                    activeMedsMap.set(medKey, {
+                        nombre: medName,
+                        clave: m.clave || '',
+                        lote: m.lote || '',
+                        caducidad: m.caducidad || '',
+                        diasCobertura: m.diasCobertura || 1,
+                        fechaFinCobertura: m.fechaFinCobertura || null,
+                        dosis: m.dosis !== undefined ? m.dosis : 1,
+                        frecuencia: m.frecuencia || '24h',
+                        cantidad: m.cantidad || 1,
+                        originalStr: m.originalStr || medName,
+                        recetaFecha: r.fecha,
+                        recetaFolio: r.folio,
+                        recetaEstado: r.estado
+                    });
+                });
+            }
+        });
+
+        const activeMeds = Array.from(activeMedsMap.values());
+
         // Load active treatments
-        const medsHtml = data.meds.map(m => `
-            <div class="med-item">
-                <div class="med-info">
-                    <h4>${m.nombre}</h4>
-                    <p>${m.notas}</p>
+        const medsHtml = activeMeds.map(m => {
+            const dateStr = new Date(m.recetaFecha).toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'short'
+            });
+            
+            let statusClass = m.recetaEstado.toLowerCase().replace(' ', '-');
+            if(statusClass === 'surtido') statusClass = 'surtido';
+            else if(statusClass === 'pendiente') statusClass = 'pendiente';
+            else statusClass = 'observada';
+
+            let freqStr = m.frecuencia === '24h' ? 'cada 24 horas' : 
+                          m.frecuencia === '12h' ? 'cada 12 horas' :
+                          m.frecuencia === '8h' ? 'cada 8 horas' :
+                          m.frecuencia === '6h' ? 'cada 6 horas' :
+                          `cada ${m.frecuencia}`;
+            
+            let notas = `${m.dosis} unidad(es) ${freqStr}`;
+            if (m.clave) notas += ` • Clave: ${m.clave}`;
+            if (m.lote) notas += ` • Lote: ${m.lote}`;
+            if (m.caducidad) notas += ` • Cad: ${m.caducidad}`;
+
+            return `
+                <div class="med-item">
+                    <div class="med-info">
+                        <h4>${m.nombre}</h4>
+                        <p>${notas}</p>
+                    </div>
+                    <div class="status-tag ${statusClass}">${m.recetaEstado} (${dateStr})</div>
                 </div>
-                <div class="status-tag surtido">${m.prescrito}</div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         document.getElementById('sft-active-meds').innerHTML = medsHtml || '<p style="padding: 20px;">Sin tratamiento activo</p>';
 
-        // Load timeline
-        const notesHtml = data.notas.map(n => `
+        // Load timeline (newest first)
+        const notesList = [];
+        const sortedRecipesDesc = [...patientRecipes].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        
+        sortedRecipesDesc.forEach(r => {
+            const dateStr = new Date(r.fecha).toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'long',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            let color = 'blue';
+            if (r.estado === 'Surtido') color = 'green';
+            if (r.estado === 'Observada') color = 'orange';
+            
+            const medsListText = Array.isArray(r.medicamentos) 
+                ? r.medicamentos.map(m => typeof m === 'string' ? m : m.nombre).join(', ')
+                : 'Ninguno';
+
+            notesList.push({
+                title: `Receta Registrada (Folio: ${r.folio})`,
+                meta: `${r.medico || 'Médico Tratante'} | ${dateStr}`,
+                desc: `Receta en estado <strong>${r.estado}</strong> con medicamentos: ${medsListText}.`,
+                color: color
+            });
+            
+            if (r.tieneAlerta || r.alertaMsg) {
+                notesList.push({
+                    title: `Alerta de Seguridad (Folio: ${r.folio})`,
+                    meta: `Validador SIGEFAR | ${dateStr}`,
+                    desc: r.alertaMsg || 'Alerta de sobreabasto o coincidencia de tratamiento activa.',
+                    color: 'red'
+                });
+            }
+        });
+
+        const notesHtml = notesList.map(n => `
             <div class="timeline-item">
                 <div class="tl-dot ${n.color}"></div>
                 <div class="tl-content">
@@ -743,12 +861,127 @@ window.loadPatientSFT = function() {
             </div>
         `).join('');
         document.getElementById('sft-timeline').innerHTML = notesHtml || '<p style="padding: 20px;">Sin intervenciones registradas</p>';
-        
-        // Load Mapa Horario
+
+        // Helper functions for staggering schedule map
+        function formatHour(h) {
+            return `${String(h).padStart(2, '0')}:00`;
+        }
+
+        function getStaggeredTimes(frecuencia, index, medName) {
+            const lowerName = medName.toLowerCase();
+            
+            if (lowerName.includes('crema') || lowerName.includes('vaginal') || lowerName.includes('estrógenos')) {
+                return ['22:00'];
+            }
+            if (lowerName.includes('esomeprazol') || lowerName.includes('omeprazol')) {
+                return ['07:00'];
+            }
+            if (lowerName.includes('fibra') || lowerName.includes('plantago')) {
+                return ['12:00'];
+            }
+            
+            const offset = index % 3;
+            
+            if (frecuencia === '12h') {
+                const h1 = (8 + offset) % 24;
+                const h2 = (h1 + 12) % 24;
+                return [formatHour(h1), formatHour(h2)];
+            } else if (frecuencia === '8h') {
+                const h1 = (7 + offset) % 24;
+                const h2 = (h1 + 8) % 24;
+                const h3 = (h1 + 16) % 24;
+                return [formatHour(h1), formatHour(h2), formatHour(h3)];
+            } else if (frecuencia === '6h') {
+                const h1 = (6 + offset) % 24;
+                const h2 = (h1 + 6) % 24;
+                const h3 = (h1 + 12) % 24;
+                const h4 = (h1 + 18) % 24;
+                return [formatHour(h1), formatHour(h2), formatHour(h3), formatHour(h4)];
+            } else if (frecuencia === '48h') {
+                const h1 = (8 + offset) % 24;
+                return [formatHour(h1)];
+            } else if (frecuencia === '72h') {
+                const h1 = (8 + offset) % 24;
+                return [formatHour(h1)];
+            } else {
+                const h1 = (8 + offset) % 24;
+                return [formatHour(h1)];
+            }
+        }
+
+        // Group tomas by daytime phases
+        const tomasManana = [];
+        const tomasTarde = [];
+        const tomasNoche = [];
+
+        activeMeds.forEach((m, idx) => {
+            const freq = m.frecuencia || '24h';
+            const times = getStaggeredTimes(freq, idx, m.nombre);
+            
+            times.forEach(time => {
+                const hourVal = parseInt(time.split(':')[0]);
+                
+                let limiteStr = 'Vigente';
+                if (m.fechaFinCobertura) {
+                    const d = new Date(m.fechaFinCobertura);
+                    limiteStr = d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+                }
+
+                let rec = '';
+                if (m.frecuencia === '72h' || m.frecuencia === '48h') {
+                    rec = `Tomar cada ${m.frecuencia === '72h' ? '3' : '2'} días`;
+                }
+                const lowerName = m.nombre.toLowerCase();
+                if (lowerName.includes('crema') || lowerName.includes('vaginal')) {
+                    rec = 'Aplicación vaginal antes de dormir';
+                }
+                if (lowerName.includes('esomeprazol') || lowerName.includes('omeprazol')) {
+                    rec = 'Tomar en ayunas (30 min antes del desayuno)';
+                }
+                if (lowerName.includes('fibra') || lowerName.includes('plantago')) {
+                    rec = 'Disolver en abundante agua';
+                }
+
+                const toma = {
+                    hora: time,
+                    med: m.nombre,
+                    dosis: `${m.dosis} unidad(es)`,
+                    term: limiteStr,
+                    rec: rec
+                };
+                
+                if (hourVal >= 6 && hourVal <= 12) {
+                    tomasManana.push(toma);
+                } else if (hourVal >= 13 && hourVal <= 18) {
+                    tomasTarde.push(toma);
+                } else {
+                    tomasNoche.push(toma);
+                }
+            });
+        });
+
+        // Sort tomas chronologically
+        const sortByTime = (a, b) => a.hora.localeCompare(b.hora);
+        tomasManana.sort(sortByTime);
+        tomasTarde.sort(sortByTime);
+        tomasNoche.sort(sortByTime);
+
+        // Build Mapa Horario HTML
         const mapaContainer = document.getElementById('sft-mapa-horario');
-        if (data.mapa && data.mapa.length > 0) {
+        const phases = [];
+        if (tomasManana.length > 0) {
+            phases.push({ idFase: "manana", titulo: "Día / Mañana", icon: "ph-sun", color: "manana", tomas: tomasManana });
+        }
+        if (tomasTarde.length > 0) {
+            phases.push({ idFase: "tarde", titulo: "Tarde", icon: "ph-cloud-sun", color: "tarde", tomas: tomasTarde });
+        }
+        if (tomasNoche.length > 0) {
+            phases.push({ idFase: "noche", titulo: "Noche", icon: "ph-moon", color: "noche", tomas: tomasNoche });
+        }
+
+        if (phases.length > 0) {
             let mapaHtml = '';
-            data.mapa.forEach(fase => {
+            phases.forEach(fase => {
                 let tomasHtml = fase.tomas.map(t => {
                     let recHTML = t.rec ? `<span class="badge-recomendacion"><i class="ph-bold ph-info"></i> ${t.rec}</span>` : '';
                     return `
@@ -756,7 +989,7 @@ window.loadPatientSFT = function() {
                             <div class="fase-time">${t.hora}</div>
                             <div class="fase-details">
                                 <h4>${t.med}</h4>
-                                <p>${t.dosis} • Limite: ${t.term}</p>
+                                <p>${t.dosis} • Límite: ${t.term}</p>
                                 ${recHTML}
                             </div>
                         </div>
@@ -780,12 +1013,93 @@ window.loadPatientSFT = function() {
             mapaContainer.innerHTML = '<div class="empty-state"><i class="ph-duotone ph-calendar-x"></i><p>Mapa horario no disponible</p></div>';
         }
 
-        showAlert('Expediente clínico cargado exitosamente', 'green');
+        showAlert('Expediente clínico real cargado exitosamente', 'green');
+
     } else {
-        showAlert('No se encontró expediente farmacoterapéutico', 'red');
-        document.getElementById('sft-active-meds').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
-        document.getElementById('sft-timeline').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
-        document.getElementById('sft-mapa-horario').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
+        // 2. Fallback to mockSFTData for demo purposes
+        const data = mockSFTData[term];
+        if(data) {
+            document.getElementById('sft-paciente-nombre').innerText = data.nombre;
+            document.getElementById('sft-paciente-exp').innerText = term;
+            document.getElementById('sft-paciente-servicio').innerText = "Obstetricia";
+            
+            const allergyBox = document.getElementById('sft-paciente-alergia-box');
+            if (term === '138403010') {
+                if (allergyBox) allergyBox.style.display = 'flex';
+                const allergyEl = document.getElementById('sft-paciente-alergia');
+                if (allergyEl) allergyEl.innerText = "Alergia: Cefalosporinas";
+            } else {
+                if (allergyBox) allergyBox.style.display = 'none';
+            }
+            
+            // Load active treatments
+            const medsHtml = data.meds.map(m => `
+                <div class="med-item">
+                    <div class="med-info">
+                        <h4>${m.nombre}</h4>
+                        <p>${m.notas}</p>
+                    </div>
+                    <div class="status-tag surtido">${m.prescrito}</div>
+                </div>
+            `).join('');
+            document.getElementById('sft-active-meds').innerHTML = medsHtml || '<p style="padding: 20px;">Sin tratamiento activo</p>';
+
+            // Load timeline
+            const notesHtml = data.notas.map(n => `
+                <div class="timeline-item">
+                    <div class="tl-dot ${n.color}"></div>
+                    <div class="tl-content">
+                        <h4>${n.title}</h4>
+                        <p class="tl-meta">${n.meta}</p>
+                        <p class="tl-desc">${n.desc}</p>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('sft-timeline').innerHTML = notesHtml || '<p style="padding: 20px;">Sin intervenciones registradas</p>';
+            
+            // Load Mapa Horario
+            const mapaContainer = document.getElementById('sft-mapa-horario');
+            if (data.mapa && data.mapa.length > 0) {
+                let mapaHtml = '';
+                data.mapa.forEach(fase => {
+                    let tomasHtml = fase.tomas.map(t => {
+                        let recHTML = t.rec ? `<span class="badge-recomendacion"><i class="ph-bold ph-info"></i> ${t.rec}</span>` : '';
+                        return `
+                            <div class="fase-row">
+                                <div class="fase-time">${t.hora}</div>
+                                <div class="fase-details">
+                                    <h4>${t.med}</h4>
+                                    <p>${t.dosis} • Límite: ${t.term}</p>
+                                    ${recHTML}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    mapaHtml += `
+                        <div class="fase-card">
+                            <div class="fase-header ${fase.color}">
+                                <i class="ph-fill ${fase.icon}"></i>
+                                <span>${fase.titulo}</span>
+                            </div>
+                            <div class="fase-body">
+                                    ${tomasHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+                mapaContainer.innerHTML = mapaHtml;
+            } else {
+                mapaContainer.innerHTML = '<div class="empty-state"><i class="ph-duotone ph-calendar-x"></i><p>Mapa horario no disponible</p></div>';
+            }
+
+            showAlert('Expediente clínico de simulación cargado exitosamente', 'green');
+        } else {
+            showAlert('No se encontró expediente farmacoterapéutico', 'red');
+            document.getElementById('sft-active-meds').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
+            document.getElementById('sft-timeline').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
+            document.getElementById('sft-mapa-horario').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Paciente no encontrado</div>';
+        }
     }
 }
 
