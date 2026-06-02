@@ -120,6 +120,21 @@
                 </div>
 
                 <div class="card form-card">
+                    <!-- Carga Rápida OCR Scanner -->
+                    <div class="ocr-scanner-banner" style="background: linear-gradient(135deg, var(--orange) 0%, var(--orange-shadow) 100%); border-radius: var(--radius-xl); padding: 16px; margin-bottom: 24px; color: white; display: flex; align-items: center; justify-content: space-between; border-bottom: 4px solid #e58700;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <i class="ph-bold ph-camera" style="font-size:32px;"></i>
+                            <div>
+                                <h3 style="font-size:16px; font-weight:800; margin:0; line-height:1.2;">Carga Rápida con IA</h3>
+                                <p style="font-size:12px; opacity:0.9; margin:2px 0 0 0; font-weight:600;">Toma foto de la receta para autocompletar</p>
+                            </div>
+                        </div>
+                        <label class="btn btn-secondary" style="color:var(--orange); border-color:white; margin:0; padding:10px 16px; font-size:13px; background:white; cursor:pointer;">
+                            <i class="ph-bold ph-upload-simple"></i> Tomar Foto
+                            <input type="file" id="ocr-upload" accept="image/*" capture="environment" style="display:none;">
+                        </label>
+                    </div>
+
                     <form id="receta-form">
                         <div class="form-section">
                             <h3 class="section-badge"><i class="ph-bold ph-user"></i> Paciente</h3>
@@ -292,6 +307,8 @@
                                                 <option value="12h">c/12h</option>
                                                 <option value="8h">c/8h</option>
                                                 <option value="6h">c/6h</option>
+                                                <option value="48h">c/48h</option>
+                                                <option value="72h">c/72h</option>
                                             </select>
                                         </div>
                                         <div class="form-group small">
@@ -822,6 +839,16 @@
             }
         });
     </script>
+
+    <!-- OCR Loading Overlay -->
+    <div id="ocr-loader">
+        <div class="ocr-scan-container">
+            <i class="ph-bold ph-file-text"></i>
+            <div class="scan-line"></div>
+        </div>
+        <h3 style="margin-top:20px; font-family:var(--font-family); font-weight:800; font-size:18px;">Escaneando receta...</h3>
+        <p style="margin-top:8px; font-size:14px; opacity:0.8; font-weight:600;" id="ocr-step-text">Optimizando imagen...</p>
+    </div>
 </body>
 
 </html>

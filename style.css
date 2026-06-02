@@ -1284,3 +1284,69 @@ body {
         font-size: 15px;
     }
 }
+
+/* OCR Scanner Loading Overlay */
+#ocr-loader {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: white;
+}
+
+#ocr-loader.active {
+    display: flex;
+}
+
+.ocr-scan-container {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    border: 4px solid var(--orange);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.ocr-scan-container i {
+    font-size: 72px;
+    color: var(--orange);
+}
+
+.scan-line {
+    position: absolute;
+    width: 100%;
+    height: 4px;
+    background: var(--orange);
+    top: 0;
+    left: 0;
+    box-shadow: 0 0 12px var(--orange);
+    animation: ocr-scan 2s ease-in-out infinite;
+}
+
+@keyframes ocr-scan {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(172px); }
+    100% { transform: translateY(0); }
+}
+
+.ocr-scanner-banner {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.ocr-scanner-banner:active {
+    transform: translateY(2px);
+}

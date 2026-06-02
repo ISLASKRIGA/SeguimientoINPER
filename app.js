@@ -159,6 +159,8 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
         if (freqVal === '12h') freqNum = 2;
         if (freqVal === '8h') freqNum = 3;
         if (freqVal === '6h') freqNum = 4;
+        if (freqVal === '48h') freqNum = 0.5;
+        if (freqVal === '72h') freqNum = 0.3333;
 
         const diasCobertura = Math.floor(cantidad / (dosis * freqNum)) || 1;
         
@@ -440,17 +442,94 @@ function updateStats() {
 // Initial initialization
 document.addEventListener('DOMContentLoaded', () => {
     // Enable delete for initial row
-    document.querySelector('.btn-icon.danger').addEventListener('click', function(e) {
-        // Can't delete the only one
-        const list = document.getElementById('prescription-list');
-        if(list.children.length > 1) {
-            e.currentTarget.parentElement.remove();
-        }
-    });
+    const initialDeleteBtn = document.querySelector('.btn-icon.danger');
+    if (initialDeleteBtn) {
+        initialDeleteBtn.addEventListener('click', function(e) {
+            // Can't delete the only one
+            const list = document.getElementById('prescription-list');
+            if(list.children.length > 1) {
+                e.currentTarget.parentElement.remove();
+            }
+        });
+    }
 
     renderTable();
     updateStats();
+
+    // OCR Scanner Upload Listener
+    const ocrUpload = document.getElementById('ocr-upload');
+    if (ocrUpload) {
+        ocrUpload.addEventListener('change', handleOCRUpload);
+    }
 });
+
+// Mock OCR Prescription Parsing Simulation
+function handleOCRUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const loader = document.getElementById('ocr-loader');
+    const stepText = document.getElementById('ocr-step-text');
+    
+    if (loader) {
+        loader.classList.add('active');
+        if (stepText) stepText.innerText = "Optimizando imagen de receta...";
+    }
+
+    // Step 1: Detect/Preprocess
+    setTimeout(() => {
+        if (stepText) stepText.innerText = "Analizando texto con Inteligencia Artificial...";
+        
+        // Step 2: OCR Parsing
+        setTimeout(() => {
+            if (stepText) stepText.innerText = "Estructurando paciente, folio y medicamentos...";
+            
+            // Step 3: Extract Structure
+            setTimeout(() => {
+                // Populate Form Fields based on the uploaded prescription (Juana Valdez Lopez)
+                const expEl = document.getElementById('expediente');
+                const pacEl = document.getElementById('paciente');
+                const folEl = document.getElementById('folio');
+                const medEl = document.getElementById('medico');
+                const serEl = document.getElementById('servicio');
+
+                if (expEl) expEl.value = "113996010";
+                if (pacEl) pacEl.value = "JUANA VALDEZ LOPEZ";
+                if (folEl) folEl.value = "2026-02986660";
+                if (medEl) medEl.value = "DR. CESAR GUILLERMO CAMACHO LIZCANO";
+                if (serEl) serEl.value = "COORDINACION DE FARMACIA HOSPITALARIA";
+
+                // Setup Prescription item list
+                const list = document.getElementById('prescription-list');
+                if (list) {
+                    // Remove all prescription rows except the first one
+                    while (list.children.length > 1) {
+                        list.lastElementChild.remove();
+                    }
+                    
+                    const firstItem = list.querySelector('.prescription-item');
+                    if (firstItem) {
+                        const nameInput = firstItem.querySelector('.med-name');
+                        const dosisInput = firstItem.querySelector('.med-dosis');
+                        const freqSelect = firstItem.querySelector('.med-freq');
+                        const cantInput = firstItem.querySelector('.med-cantidad');
+
+                        if (nameInput) nameInput.value = "ESTRÓGENOS CONJUGADOS Crema Vaginal";
+                        if (dosisInput) dosisInput.value = "1";
+                        if (freqSelect) freqSelect.value = "72h";
+                        if (cantInput) cantInput.value = "1";
+                    }
+                }
+
+                if (loader) loader.classList.remove('active');
+                showAlert('Receta de JUANA VALDEZ LOPEZ digitalizada con éxito.', 'green');
+                
+                // Reset input file so user can re-trigger uploading same image if needed
+                ocrUpload.value = '';
+            }, 1000);
+        }, 1000);
+    }, 1000);
+}
 
 // SFT Inner Tabs Logic
 document.querySelectorAll('#sft-tabs .tab-btn').forEach(btn => {
