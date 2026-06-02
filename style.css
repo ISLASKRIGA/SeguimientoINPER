@@ -579,8 +579,18 @@ body {
 
 .med-row {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     margin-top: 12px;
+}
+
+.med-row > .form-group {
+    flex: 1 1 calc(33.333% - 8px);
+    min-width: 90px;
+}
+
+.med-row > .form-group.clave-group {
+    flex: 1 1 100%;
 }
 
 .ios-med-item {
@@ -1349,4 +1359,10 @@ body {
 
 .ocr-scanner-banner:active {
     transform: translateY(2px);
+}
+
+@media (min-width: 768px) {
+    .med-row > .form-group.clave-group {
+        flex: 1.5 1 150px;
+    }
 }
