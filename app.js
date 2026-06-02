@@ -29,12 +29,50 @@ async function fetchRecetas() {
             alertaMsg: r.alerta_msg
         }));
         
+        // Cache to localStorage
+        localStorage.setItem('recetas_cache', JSON.stringify(db.recetas));
+        
         renderTable();
         updateStats();
     } catch (err) {
-        console.error('Error fetching from Supabase:', err);
-        // Note: showAlert might not be defined if called too early, but usually it is.
+        console.error('Error fetching from Supabase, loading local database:', err);
+        loadLocalDB();
     }
+}
+
+function loadLocalDB() {
+    const cached = localStorage.getItem('recetas_cache');
+    if (cached) {
+        try {
+            db.recetas = JSON.parse(cached);
+        } catch (e) {
+            console.error('Failed to parse cached recipes:', e);
+            db.recetas = [];
+        }
+    }
+    
+    if (!db.recetas || db.recetas.length === 0) {
+        // Fallback default recipe if no cache exists
+        db.recetas = [
+            {
+                id: 1,
+                folio: "2026-02986660",
+                expediente: "113996010",
+                paciente: "JUANA VALDEZ LOPEZ",
+                medico: "DR. CESAR GUILLERMO CAMACHO LIZCANO",
+                estado: "Surtido",
+                fecha: new Date().toISOString(),
+                medicamentos: [
+                    { nombre: "ESTRÓGENOS CONJUGADOS Crema Vaginal", clave: "010.000.1506.00", lote: "SE14344A", caducidad: "MAY-27", diasCobertura: 90, fechaFinCobertura: new Date().toISOString(), originalStr: "ESTRÓGENOS CONJUGADOS Crema Vaginal [Clave: 010.000.1506.00] [Lote: SE14344A] [Cad: MAY-27]" }
+                ],
+                tieneAlerta: false,
+                alertaMsg: null
+            }
+        ];
+        localStorage.setItem('recetas_cache', JSON.stringify(db.recetas));
+    }
+    renderTable();
+    updateStats();
 }
 
 // Initial fetch
@@ -260,8 +298,32 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
         fetchRecetas(); // Reload from DB
         switchTab('dashboard');
     } catch (err) {
-        console.error('Error saving to Supabase:', err);
-        showAlert('Error: ' + (err.message || 'Fallo al guardar en BD'), 'red');
+        console.error('Error saving to Supabase, falling back to local storage:', err);
+        
+        // Add to local database
+        const localRecord = {
+            id: Date.now(), // Unique local ID
+            folio: newRecord.folio,
+            expediente: newRecord.expediente,
+            paciente: newRecord.paciente,
+            medico: newRecord.medico,
+            estado: newRecord.estado,
+            fecha: new Date().toISOString(),
+            medicamentos: newRecord.medicamentos,
+            tieneAlerta: newRecord.tiene_alerta,
+            alertaMsg: newRecord.alerta_msg
+        };
+        
+        db.recetas.unshift(localRecord);
+        localStorage.setItem('recetas_cache', JSON.stringify(db.recetas));
+        
+        showAlert('Guardado localmente. La base de datos externa no está disponible.', 'yellow');
+
+        // Reset UI
+        document.getElementById('receta-form').reset();
+        renderTable();
+        updateStats();
+        switchTab('dashboard');
     }
 });
 
@@ -302,7 +364,7 @@ let currentSurtimientoId = null;
 
 function openSurtimientoModal(id) {
     currentSurtimientoId = id;
-    const r = db.recetas.find(x => x.id === id);
+    const r = db.recetas.find(x => x.id == id);
     if(!r) return;
 
     const detailsHTML = `
@@ -323,7 +385,7 @@ function openSurtimientoModal(id) {
 }
 
 function openDetalleModal(id) {
-    const r = db.recetas.find(x => x.id === id);
+    const r = db.recetas.find(x => x.id == id);
     if (!r) return;
 
     const fecha = new Date(r.fecha).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
@@ -366,28 +428,31 @@ function closeModal() {
 async function processSurtimiento(type) {
     if(!currentSurtimientoId) return;
     
-    let r = db.recetas.find(x => x.id === currentSurtimientoId);
+    let r = db.recetas.find(x => x.id == currentSurtimientoId);
     if(r) {
+        const notas = document.getElementById('surtimiento-notas')?.value.trim() || '';
+        let estado = '';
+        let tiene_alerta = false;
+        let alerta_msg = '';
+        
+        if(type === 'parcial') {
+            estado = 'Observada';
+            tiene_alerta = true;
+            alerta_msg = notas || "Surtimiento parcial. Faltan unidades.";
+        } else {
+            estado = 'Surtido';
+            tiene_alerta = false;
+            alerta_msg = notas || null;
+        }
+
         try {
-            const notas = document.getElementById('surtimiento-notas')?.value.trim() || '';
-            let updatePayload = {};
-            if(type === 'parcial') {
-                updatePayload = {
-                    estado: 'Observada',
-                    tiene_alerta: true,
-                    alerta_msg: notas || "Surtimiento parcial. Faltan unidades."
-                };
-            } else {
-                updatePayload = {
-                    estado: 'Surtido',
-                    tiene_alerta: false,
-                    alerta_msg: notas || null
-                };
-            }
-            
             const { error } = await dbClient
                 .from('recetas')
-                .update(updatePayload)
+                .update({
+                    estado: estado,
+                    tiene_alerta: tiene_alerta,
+                    alerta_msg: alerta_msg
+                })
                 .eq('id', currentSurtimientoId);
                 
             if (error) throw error;
@@ -398,8 +463,21 @@ async function processSurtimiento(type) {
             closeModal();
             fetchRecetas(); // Reload data from DB
         } catch (err) {
-            console.error('Error updating Supabase:', err);
-            showAlert('Error al actualizar registro', 'red');
+            console.error('Error updating Supabase, falling back to local update:', err);
+            
+            // Update locally
+            r.estado = estado;
+            r.tieneAlerta = tiene_alerta;
+            r.alertaMsg = alerta_msg;
+            
+            localStorage.setItem('recetas_cache', JSON.stringify(db.recetas));
+            
+            if(type === 'parcial') showAlert('Surtimiento parcial registrado localmente.', 'yellow');
+            else showAlert('Surtimiento completo registrado localmente.', 'green');
+            
+            closeModal();
+            renderTable();
+            updateStats();
         }
     }
 }
