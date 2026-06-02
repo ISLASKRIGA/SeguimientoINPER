@@ -167,11 +167,18 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
         const fechaFin = new Date();
         fechaFin.setDate(fechaFin.getDate() + diasCobertura);
 
+        const clave = (item.querySelector('.med-clave')?.value || '').trim();
+        const lote = (item.querySelector('.med-lote')?.value || '').trim();
+        const caducidad = (item.querySelector('.med-caducidad')?.value || '').trim();
+
         return {
             nombre,
+            clave,
+            lote,
+            caducidad,
             diasCobertura,
             fechaFinCobertura: fechaFin.toISOString(),
-            originalStr: nombre
+            originalStr: `${nombre} ${clave ? `[Clave: ${clave}]` : ''} ${lote ? `[Lote: ${lote}]` : ''} ${caducidad ? `[Cad: ${caducidad}]` : ''}`.trim()
         };
     }).filter(m => m.nombre !== '');
 
@@ -510,11 +517,17 @@ function handleOCRUpload(e) {
                     const firstItem = list.querySelector('.prescription-item');
                     if (firstItem) {
                         const nameInput = firstItem.querySelector('.med-name');
+                        const claveInput = firstItem.querySelector('.med-clave');
+                        const loteInput = firstItem.querySelector('.med-lote');
+                        const caducidadInput = firstItem.querySelector('.med-caducidad');
                         const dosisInput = firstItem.querySelector('.med-dosis');
                         const freqSelect = firstItem.querySelector('.med-freq');
                         const cantInput = firstItem.querySelector('.med-cantidad');
 
                         if (nameInput) nameInput.value = "ESTRÓGENOS CONJUGADOS Crema Vaginal";
+                        if (claveInput) claveInput.value = "010.000.1506.00";
+                        if (loteInput) loteInput.value = "SE14344A";
+                        if (caducidadInput) caducidadInput.value = "MAY-27";
                         if (dosisInput) dosisInput.value = "1";
                         if (freqSelect) freqSelect.value = "72h";
                         if (cantInput) cantInput.value = "1";
