@@ -617,17 +617,24 @@ function handleOCRUpload(e) {
             if (stepText) stepText.innerText = "Analizando y estructurando datos...";
 
             let parsed = parsePrescriptionText(text);
-            parsed = mergeMockOcrDataIfNeeded(parsed, file.name, text, file.size);
-            const hasData = parsed.paciente || parsed.folio || parsed.expediente || parsed.medicamentos.length > 0;
+            let matched = mergeMockOcrDataIfNeeded(parsed, file.name, text, file.size);
 
-            if (hasData) {
+            if (matched) {
                 setTimeout(() => {
                     if (loader) loader.classList.remove('active');
-                    openOcrModal(parsed);
+                    openOcrModal(matched);
                 }, 800);
             } else {
-                console.log("No structured text detected. Using mockup simulation.");
-                useMockOcrData(loader, file.name, text, file.size);
+                const hasData = parsed.paciente || parsed.folio || parsed.expediente || parsed.medicamentos.length > 0;
+                if (hasData) {
+                    setTimeout(() => {
+                        if (loader) loader.classList.remove('active');
+                        openOcrModal(parsed);
+                    }, 800);
+                } else {
+                    console.log("No structured text detected. Using mockup simulation.");
+                    useMockOcrData(loader, file.name, text, file.size);
+                }
             }
         }).catch(err => {
             console.error("OCR Error (trying English fallback):", err);
@@ -639,13 +646,19 @@ function handleOCRUpload(e) {
                 { logger: m => console.log(m) }
             ).then(({ data: { text } }) => {
                 let parsed = parsePrescriptionText(text);
-                parsed = mergeMockOcrDataIfNeeded(parsed, file.name, text, file.size);
-                const hasData = parsed.paciente || parsed.folio || parsed.expediente || parsed.medicamentos.length > 0;
-                if (hasData) {
+                let matched = mergeMockOcrDataIfNeeded(parsed, file.name, text, file.size);
+                
+                if (matched) {
                     if (loader) loader.classList.remove('active');
-                    openOcrModal(parsed);
+                    openOcrModal(matched);
                 } else {
-                    useMockOcrData(loader, file.name, text, file.size);
+                    const hasData = parsed.paciente || parsed.folio || parsed.expediente || parsed.medicamentos.length > 0;
+                    if (hasData) {
+                        if (loader) loader.classList.remove('active');
+                        openOcrModal(parsed);
+                    } else {
+                        useMockOcrData(loader, file.name, text, file.size);
+                    }
                 }
             }).catch(retryErr => {
                 console.error("Failed retry with English:", retryErr);
@@ -1432,25 +1445,112 @@ function mergeMockOcrDataIfNeeded(parsed, filename, rawText = '', fileSize = 0) 
     }
 
     // Default Fallback
-    return {
-        folio: parsed.folio || "2026-02986660",
-        expediente: parsed.expediente || "113996010",
-        paciente: parsed.paciente || "JUANA VALDEZ LOPEZ",
-        medico: parsed.medico || "DR. CESAR GUILLERMO CAMACHO LIZCANO",
-        servicio: parsed.servicio || "COORDINACION DE FARMACIA HOSPITALARIA",
-        medicamentos: (parsed.medicamentos && parsed.medicamentos.length > 0) ? parsed.medicamentos : [
-            { nombre: "ESTRÓGENOS CONJUGADOS Crema Vaginal", clave: "010.000.1506.00", lote: "SE14344A", caducidad: "MAY-27", estatus: "AIC", dosis: "1", frecuencia: "72h", duracion: "90 días", cantidad: "1 caja" }
-        ]
-    };
+    return null;
 }
 
 function useMockOcrData(loader, filename, rawText = '', fileSize = 0) {
-    const mockData = mergeMockOcrDataIfNeeded({ medicamentos: [] }, filename, rawText, fileSize);
+    showRecipeSelector(loader);
+}
 
-    setTimeout(() => {
-        if (loader) loader.classList.remove('active');
-        openOcrModal(mockData);
-    }, 1000);
+function showRecipeSelector(loader) {
+    if (loader) loader.classList.remove('active');
+    
+    // Check if selector already exists and remove it
+    const existing = document.getElementById('recipe-selector-modal');
+    if (existing) existing.remove();
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'recipe-selector-modal';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.background = 'rgba(0, 0, 0, 0.6)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.zIndex = '99999';
+    overlay.style.backdropFilter = 'blur(5px)';
+    
+    const content = document.createElement('div');
+    content.style.background = 'white';
+    content.style.borderRadius = '24px';
+    content.style.padding = '24px';
+    content.style.width = '90%';
+    content.style.maxWidth = '400px';
+    content.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+    content.style.textAlign = 'center';
+    content.style.fontFamily = 'var(--font-family, "Nunito", sans-serif)';
+    
+    content.innerHTML = `
+        <h3 style="margin-bottom: 8px; font-weight: 900; font-size: 19px; color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Nunito', sans-serif;"><i class="ph-bold ph-magic-wand"></i> Asistente de Demo</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px; font-weight: 700; line-height: 1.4; font-family: 'Nunito', sans-serif;">El motor OCR no pudo determinar la receta automáticamente. Selecciona la receta que deseas simular:</p>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button class="btn btn-primary btn-recipe-opt" data-recipe="rosalba1" style="background: var(--primary); border-bottom: 4px solid var(--primary-shadow); text-align: left; padding: 12px 16px; font-size: 14px; display: flex; flex-direction: column; height: auto; align-items: flex-start; cursor: pointer; width: 100%; border-radius: 16px; color: white;">
+                <strong style="color: white; font-size: 14px; font-family: 'Nunito', sans-serif;">Rosalba Flores Chavira (Receta 1)</strong>
+                <span style="font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; font-weight: 600; font-family: 'Nunito', sans-serif;">Insulina Glargina 100 UI (Folio: 3047130)</span>
+            </button>
+            <button class="btn btn-primary btn-recipe-opt" data-recipe="rosalba2" style="background: var(--primary); border-bottom: 4px solid var(--primary-shadow); text-align: left; padding: 12px 16px; font-size: 14px; display: flex; flex-direction: column; height: auto; align-items: flex-start; cursor: pointer; width: 100%; border-radius: 16px; color: white;">
+                <strong style="color: white; font-size: 14px; font-family: 'Nunito', sans-serif;">Rosalba Flores Chavira (Receta 2)</strong>
+                <span style="font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; font-weight: 600; font-family: 'Nunito', sans-serif;">Sitagliptina / Dapagliflozina / Frasco 10ml (Folio: 3047051)</span>
+            </button>
+            <button class="btn btn-primary btn-recipe-opt" data-recipe="itzel1" style="background: var(--primary); border-bottom: 4px solid var(--primary-shadow); text-align: left; padding: 12px 16px; font-size: 14px; display: flex; flex-direction: column; height: auto; align-items: flex-start; cursor: pointer; width: 100%; border-radius: 16px; color: white;">
+                <strong style="color: white; font-size: 14px; font-family: 'Nunito', sans-serif;">Itzel Citlali Hernandez (Receta 1)</strong>
+                <span style="font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; font-weight: 600; font-family: 'Nunito', sans-serif;">Paracetamol / Ibuprofeno / Fondaparinux (Folio: 3043437)</span>
+            </button>
+            <button class="btn btn-primary btn-recipe-opt" data-recipe="itzel2" style="background: var(--primary); border-bottom: 4px solid var(--primary-shadow); text-align: left; padding: 12px 16px; font-size: 14px; display: flex; flex-direction: column; height: auto; align-items: flex-start; cursor: pointer; width: 100%; border-radius: 16px; color: white;">
+                <strong style="color: white; font-size: 14px; font-family: 'Nunito', sans-serif;">Itzel Citlali Hernandez (Receta 2)</strong>
+                <span style="font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; font-weight: 600; font-family: 'Nunito', sans-serif;">Amoxicilina / Ácido Clavulánico (Folio: 3043447)</span>
+            </button>
+            <button class="btn btn-primary btn-recipe-opt" data-recipe="leticia" style="background: var(--primary); border-bottom: 4px solid var(--primary-shadow); text-align: left; padding: 12px 16px; font-size: 14px; display: flex; flex-direction: column; height: auto; align-items: flex-start; cursor: pointer; width: 100%; border-radius: 16px; color: white;">
+                <strong style="color: white; font-size: 14px; font-family: 'Nunito', sans-serif;">Leticia Cuevas Chavez</strong>
+                <span style="font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; font-weight: 600; font-family: 'Nunito', sans-serif;">Metformina / Dapagliflozina / Losartán / Pregabalina (3046900)</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-cancel-select" style="margin-top: 8px; font-size: 14px; font-weight: 800; cursor: pointer; border-radius: 16px; height: 44px; display: flex; align-items: center; justify-content: center; width: 100%; font-family: 'Nunito', sans-serif;">Subir Receta Vacía</button>
+        </div>
+    `;
+    
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+    
+    // Add click listeners
+    content.querySelectorAll('.btn-recipe-opt').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const recipeType = btn.dataset.recipe;
+            let mockData = {};
+            if (recipeType === 'rosalba1') {
+                mockData = mergeMockOcrDataIfNeeded({ medicamentos: [] }, 'media__1782235366958.jpg', '', 356344);
+            } else if (recipeType === 'rosalba2') {
+                mockData = mergeMockOcrDataIfNeeded({ medicamentos: [] }, 'media__1782235373596.jpg', '', 371290);
+            } else if (recipeType === 'itzel1') {
+                mockData = mergeMockOcrDataIfNeeded({ medicamentos: [] }, 'media__1782235383124.jpg', '', 367561);
+            } else if (recipeType === 'itzel2') {
+                mockData = mergeMockOcrDataIfNeeded({ medicamentos: [] }, 'media__1782235387750.jpg', '', 359864);
+            } else if (recipeType === 'leticia') {
+                mockData = mergeMockOcrDataIfNeeded({ medicamentos: [] }, 'media__1782235393477.jpg', '', 386733);
+            }
+            
+            overlay.remove();
+            openOcrModal(mockData);
+        });
+    });
+    
+    content.querySelector('#btn-cancel-select').addEventListener('click', () => {
+        overlay.remove();
+        // Load default empty recipe (previously Juana Valdez)
+        openOcrModal({
+            folio: "2026-02986660",
+            expediente: "113996010",
+            paciente: "JUANA VALDEZ LOPEZ",
+            medico: "DR. CESAR GUILLERMO CAMACHO LIZCANO",
+            servicio: "COORDINACION DE FARMACIA HOSPITALARIA",
+            medicamentos: [
+                { nombre: "ESTRÓGENOS CONJUGADOS Crema Vaginal", clave: "010.000.1506.00", lote: "SE14344A", caducidad: "MAY-27", estatus: "AIC", dosis: "1", frecuencia: "72h", duracion: "90 días", cantidad: "1 caja" }
+            ]
+        });
+    });
 }
 
 // Regex-based OCR parser
