@@ -1664,19 +1664,57 @@ function parsePrescriptionText(text) {
         }
     }
 
-    // Paciente Name (using the improved pattern with lookahead to prevent CURP letters from merging into the name)
-    const nameRegex = /(?:paciente|nombre\s+del\s+paciente|nombre)[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\s*(?:CURP|EDAD|FECHA|\/|\b[A-Z]{4}\d{6}|\b\d|\n|$))/i;
-    for (const line of cleanedLines) {
-        const match = line.match(nameRegex);
-        if (match && !match[1].toLowerCase().includes('médico') && !match[1].toLowerCase().includes('dr')) {
-            let pName = match[1].trim().toUpperCase();
-            pName = pName.replace(/\s+[^A-Z0-9\s]$/g, '').trim();
-            result.paciente = pName;
+    // Paciente Name (using relative positioning and label-stripping)
+    let folioLineIdx = -1;
+    for (let i = 0; i < rawLines.length; i++) {
+        if (rawLines[i].match(folioRegex) || rawLines[i].match(expRegex)) {
+            folioLineIdx = i;
             break;
         }
     }
+
+    let patientLine = '';
+    // Method A: Find line with PACIENTE/NOMBRE label (handling OCR typos)
+    for (const line of cleanedLines) {
+        if (/^.*(?:PAC[I1]EN|NOMBR|PAC\s*I\s*E|P\s*A\s*C\s*I)/i.test(line)) {
+            patientLine = line;
+            break;
+        }
+    }
+    // Method B: Fallback to the first non-empty line after FOLIO/EXPEDIENTE line (position is always the same)
+    if (!patientLine && folioLineIdx !== -1) {
+        for (let k = folioLineIdx + 1; k < cleanedLines.length; k++) {
+            if (cleanedLines[k].trim().length > 0) {
+                patientLine = cleanedLines[k];
+                break;
+            }
+        }
+    }
+
+    if (patientLine) {
+        let namePart = patientLine;
+        // Strip prefixes like "PACIENTE:", "NOMBRE:", "PAC1ENTE:", etc.
+        namePart = namePart.replace(/^.*(?:PAC[I1]EN[T1]E|NOMBR[E3]|PAC[I1]EN|P\s*A\s*C\s*I\s*E\s*N\s*T\s*E)[:\s\-]+/i, '');
+        namePart = namePart.replace(/^(?:PAC[I1]EN[T1]E|NOMBR[E3]|PAC[I1]EN|P\s*A\s*C\s*I\s*E\s*N\s*T\s*E)\s+/i, '');
+        
+        // Split by subsequent keywords to prevent capturing CURP, EDAD, FECHA, etc.
+        const splitKeywords = [/\bCURP\b/i, /\bEDAD\b/i, /\bFECHA\b/i, /\bSEXO\b/i, /\bREGISTRO\b/i, /\bNO\b/i, /\//, /\b[A-Z]{4}\d{6}/i];
+        for (const kw of splitKeywords) {
+            const idx = namePart.search(kw);
+            if (idx !== -1) {
+                namePart = namePart.substring(0, idx);
+            }
+        }
+        
+        // Clean up the name string
+        let pName = namePart.replace(/[^A-ZÁÉÍÓÚÑa-záéíóúñ\s]/ig, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+        if (pName.length > 5 && !pName.includes('MEDICO') && !pName.includes('DR') && !pName.includes('DRA') && !pName.includes('INSTITUTO')) {
+            result.paciente = pName;
+        }
+    }
+
+    // Secondary fallback using keyword search if the line-based search failed
     if (!result.paciente) {
-        // Fallback: look for a line containing 2 to 4 capitalized words, no numbers, length between 10 and 50
         const nameKeywordsToAvoid = ['dr', 'dra', 'médico', 'medico', 'instituto', 'servicio', 'receta', 'folio', 'expediente', 'fecha', 'edad', 'curp', 'cédula', 'cedula', 'firma', 'nacional', 'perinatal', 'coordinación', 'coordinacion', 'subdirección', 'subdireccion', 'departamento', 'depto', 'dirección', 'direccion', 'hospital', 'farmacia', 'avenida', 'calle', 'colonia', 'teléfono', 'telefono'];
         for (const line of cleanedLines) {
             const cleanLine = line.trim().toUpperCase();
