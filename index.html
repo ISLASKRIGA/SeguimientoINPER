@@ -2,6 +2,14 @@
 <html lang="es">
 
 <head>
+    <script>
+        // Force reload to clear browser cache when app is updated
+        const APP_VERSION = '20260623_1234';
+        if (localStorage.getItem('app_version') !== APP_VERSION) {
+            localStorage.setItem('app_version', APP_VERSION);
+            window.location.reload(true);
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
