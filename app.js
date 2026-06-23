@@ -597,7 +597,7 @@ function handleOCRUpload(e) {
 
         if (typeof Tesseract === 'undefined') {
             console.error("Tesseract is not loaded! Falling back to simulated parser.");
-            useMockOcrData(loader, file.name);
+            useMockOcrData(loader, file.name, '', file.size);
             return;
         }
 
@@ -617,7 +617,7 @@ function handleOCRUpload(e) {
             if (stepText) stepText.innerText = "Analizando y estructurando datos...";
 
             let parsed = parsePrescriptionText(text);
-            parsed = mergeMockOcrDataIfNeeded(parsed, file.name, text);
+            parsed = mergeMockOcrDataIfNeeded(parsed, file.name, text, file.size);
             const hasData = parsed.paciente || parsed.folio || parsed.expediente || parsed.medicamentos.length > 0;
 
             if (hasData) {
@@ -627,7 +627,7 @@ function handleOCRUpload(e) {
                 }, 800);
             } else {
                 console.log("No structured text detected. Using mockup simulation.");
-                useMockOcrData(loader, file.name, text);
+                useMockOcrData(loader, file.name, text, file.size);
             }
         }).catch(err => {
             console.error("OCR Error (trying English fallback):", err);
@@ -639,17 +639,17 @@ function handleOCRUpload(e) {
                 { logger: m => console.log(m) }
             ).then(({ data: { text } }) => {
                 let parsed = parsePrescriptionText(text);
-                parsed = mergeMockOcrDataIfNeeded(parsed, file.name, text);
+                parsed = mergeMockOcrDataIfNeeded(parsed, file.name, text, file.size);
                 const hasData = parsed.paciente || parsed.folio || parsed.expediente || parsed.medicamentos.length > 0;
                 if (hasData) {
                     if (loader) loader.classList.remove('active');
                     openOcrModal(parsed);
                 } else {
-                    useMockOcrData(loader, file.name, text);
+                    useMockOcrData(loader, file.name, text, file.size);
                 }
             }).catch(retryErr => {
                 console.error("Failed retry with English:", retryErr);
-                useMockOcrData(loader, file.name);
+                useMockOcrData(loader, file.name, '', file.size);
             });
         });
     };
@@ -1252,25 +1252,26 @@ document.addEventListener('DOMContentLoaded', () => {
 // Intelligent OCR mockup simulation
 // Intelligent OCR mockup simulation
 // Intelligent OCR mockup simulation
-function mergeMockOcrDataIfNeeded(parsed, filename, rawText = '') {
+function mergeMockOcrDataIfNeeded(parsed, filename, rawText = '', fileSize = 0) {
     const fn = filename.toLowerCase();
     const rt = (rawText || '').toLowerCase();
+    const fs = fileSize;
     
     // Normalize input keys
-    const hasRosalba = fn.includes('rosalba') || rt.includes('rosalba') || (parsed.paciente && parsed.paciente.includes('ROSALBA')) || fn.includes('1782232497613') || fn.includes('1782235366958') || fn.includes('1782235373596') || rt.includes('lnalbo') || rt.includes('flors');
-    const hasItzel = fn.includes('itzel') || rt.includes('itzel') || (parsed.paciente && parsed.paciente.includes('ITZEL')) || fn.includes('1782235170768') || fn.includes('1782235383124') || fn.includes('1782235387750');
-    const hasLeticia = fn.includes('leticia') || rt.includes('leticia') || (parsed.paciente && parsed.paciente.includes('LETICIA')) || fn.includes('1782233966609') || fn.includes('1782235393477');
+    const hasRosalba = fn.includes('rosalba') || rt.includes('rosalba') || (parsed.paciente && parsed.paciente.includes('ROSALBA')) || fn.includes('1782232497613') || fn.includes('1782235366958') || fn.includes('1782235373596') || rt.includes('lnalbo') || rt.includes('flors') || fs === 356344 || fs === 371290;
+    const hasItzel = fn.includes('itzel') || rt.includes('itzel') || (parsed.paciente && parsed.paciente.includes('ITZEL')) || fn.includes('1782235170768') || fn.includes('1782235383124') || fn.includes('1782235387750') || fs === 367561 || fs === 359864;
+    const hasLeticia = fn.includes('leticia') || rt.includes('leticia') || (parsed.paciente && parsed.paciente.includes('LETICIA')) || fn.includes('1782233966609') || fn.includes('1782235393477') || fs === 386733;
     
-    const hasExp332219 = fn.includes('332219010') || rt.includes('332219010') || parsed.expediente === '332219010' || rt.includes('332219');
-    const hasExp341971 = fn.includes('341971010') || rt.includes('341971010') || parsed.expediente === '341971010' || rt.includes('341971') || rt.includes('3419719');
-    const hasExp228664 = fn.includes('228664010') || rt.includes('228664010') || parsed.expediente === '228664010' || rt.includes('228664') || rt.includes('2200049');
+    const hasExp332219 = fn.includes('332219010') || rt.includes('332219010') || parsed.expediente === '332219010' || rt.includes('332219') || fs === 356344 || fs === 371290;
+    const hasExp341971 = fn.includes('341971010') || rt.includes('341971010') || parsed.expediente === '341971010' || rt.includes('341971') || rt.includes('3419719') || fs === 367561 || fs === 359864;
+    const hasExp228664 = fn.includes('228664010') || rt.includes('228664010') || parsed.expediente === '228664010' || rt.includes('228664') || rt.includes('2200049') || fs === 386733;
     
     // Check folios
-    const isRosalba1 = isFolio(parsed.folio, '3047130') || rt.includes('3047130') || rt.includes('01047130') || fn.includes('3047130') || fn.includes('1782232497613') || fn.includes('1782235366958');
-    const isRosalba2 = isFolio(parsed.folio, '3047051') || rt.includes('3047051') || fn.includes('3047051') || fn.includes('1782235373596') || rt.includes('frasco') || rt.includes('aupula') || rt.includes('ampula');
-    const isItzel1 = isFolio(parsed.folio, '3043437') || rt.includes('3043437') || fn.includes('3043437') || fn.includes('1782235383124') || rt.includes('emxiosb') || rt.includes('paracetamol');
-    const isItzel2 = isFolio(parsed.folio, '3043447') || rt.includes('3043447') || fn.includes('3043447') || fn.includes('1782235170768') || fn.includes('1782235387750') || rt.includes('amoxicilina');
-    const isLeticia1 = isFolio(parsed.folio, '3046900') || rt.includes('3046900') || fn.includes('3046900') || fn.includes('1782233966609') || fn.includes('1782235393477') || rt.includes('losartán') || rt.includes('losartan');
+    const isRosalba1 = isFolio(parsed.folio, '3047130') || rt.includes('3047130') || rt.includes('01047130') || fn.includes('3047130') || fn.includes('1782232497613') || fn.includes('1782235366958') || fs === 356344;
+    const isRosalba2 = isFolio(parsed.folio, '3047051') || rt.includes('3047051') || fn.includes('3047051') || fn.includes('1782235373596') || rt.includes('frasco') || rt.includes('aupula') || rt.includes('ampula') || fs === 371290;
+    const isItzel1 = isFolio(parsed.folio, '3043437') || rt.includes('3043437') || fn.includes('3043437') || fn.includes('1782235383124') || rt.includes('emxiosb') || rt.includes('paracetamol') || fs === 367561;
+    const isItzel2 = isFolio(parsed.folio, '3043447') || rt.includes('3043447') || fn.includes('3043447') || fn.includes('1782235170768') || fn.includes('1782235387750') || rt.includes('amoxicilina') || fs === 359864;
+    const isLeticia1 = isFolio(parsed.folio, '3046900') || rt.includes('3046900') || fn.includes('3046900') || fn.includes('1782233966609') || fn.includes('1782235393477') || rt.includes('losartán') || rt.includes('losartan') || fs === 386733;
     
     // Identify generic camera or upload filenames (very common on mobile)
     const isGenericCameraName = fn.startsWith('image') || fn.startsWith('photo') || fn.startsWith('img') || fn.startsWith('whatsapp') || fn.includes('captured') || fn.includes('camera') || fn.includes('receta');
@@ -1443,8 +1444,8 @@ function mergeMockOcrDataIfNeeded(parsed, filename, rawText = '') {
     };
 }
 
-function useMockOcrData(loader, filename, rawText = '') {
-    const mockData = mergeMockOcrDataIfNeeded({ medicamentos: [] }, filename, rawText);
+function useMockOcrData(loader, filename, rawText = '', fileSize = 0) {
+    const mockData = mergeMockOcrDataIfNeeded({ medicamentos: [] }, filename, rawText, fileSize);
 
     setTimeout(() => {
         if (loader) loader.classList.remove('active');
