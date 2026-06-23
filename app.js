@@ -1362,7 +1362,7 @@ function parsePrescriptionText(text) {
         const explicit = str.match(/(?:lote|lot)[:\s]+([A-Z0-9]+)/i);
         if (explicit) return explicit[1].toUpperCase();
 
-        const words = str.split(/[\s,|/]+/).map(w => w.trim()).filter(w => w.length >= 5);
+        const words = str.split(/[\s,|/]+/).map(w => w.trim()).filter(w => w.length >= 4);
         for (const word of words) {
             if (excludeList.some(ex => ex.toLowerCase().includes(word.toLowerCase()) || word.toLowerCase().includes(ex.toLowerCase()))) {
                 continue;
@@ -1370,7 +1370,7 @@ function parsePrescriptionText(text) {
             if (word.includes('.')) continue;
             if (/^[A-Z]{4}\d{6}[A-Z]{6}\d{2}$/i.test(word)) continue; // CURP
 
-            if (/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,12}$/.test(word)) {
+            if (/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{4,12}$/.test(word)) {
                 let val = word.toUpperCase();
                 if (val.includes('1224120')) return '1224120512'; // Normalize using hand-written rules (raya abajo is 5, else 2)
                 return val;
@@ -1384,6 +1384,29 @@ function parsePrescriptionText(text) {
     }
 
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    // Pre-process lines to merge split Claves (which are often printed on two lines: 010.000. and 4158.01)
+    for (let i = 0; i < lines.length - 1; i++) {
+        const lineA = lines[i];
+        const lineB = lines[i + 1];
+        
+        // Match first part like 010.000 or 010 000 or 010000
+        const matchA = lineA.match(/\b(\d{3})[-.\s]?(\d{3})\b/);
+        // Match second part like 4158.01 or 4158 01 or 415801
+        const matchB = lineB.match(/\b(\d{4})[-.\s]?(\d{2})\b/);
+        
+        if (matchA && matchB) {
+            // Verify if these look like split parts of a 12-digit Clave starting with 010
+            const potentialMerged = `${matchA[1]}${matchA[2]}${matchB[1]}${matchB[2]}`;
+            if (potentialMerged.startsWith('010') && potentialMerged.length === 12) {
+                const mergedClave = `${matchA[1]}.${matchA[2]}.${matchB[1]}.${matchB[2]}`;
+                // Replace the partial match in lineA with the merged clave and append lineB details
+                lines[i] = lineA.replace(matchA[0], mergedClave) + " " + lineB.replace(matchB[0], '');
+                lines.splice(i + 1, 1);
+                i--; // Re-evaluate index since we spliced the array
+            }
+        }
+    }
 
     // Folio (R-XXXXX or 2026-XXXXXXXX)
     const folioRegex = /(?:folio|receta|no\.?\s*receta|no\.?\s*folio)[:\s]+([A-Z0-9-]{5,20})|([A-Z0-9]{3,4}-\d{5,10})|\b(\d{4}-\d{8})\b/i;
@@ -1410,7 +1433,10 @@ function parsePrescriptionText(text) {
     for (const line of lines) {
         const match = line.match(nameRegex);
         if (match && !match[1].toLowerCase().includes('médico') && !match[1].toLowerCase().includes('dr')) {
-            result.paciente = match[1].trim().toUpperCase();
+            let pName = match[1].trim().toUpperCase();
+            // Remove noise suffixes like " _", " -", " /" or single characters at the end
+            pName = pName.replace(/\s+[^A-Z0-9\s]$/g, '').trim();
+            result.paciente = pName;
             break;
         }
     }
