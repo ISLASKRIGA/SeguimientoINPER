@@ -190,9 +190,10 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
     const medItems = document.querySelectorAll('.prescription-item');
     const medicamentosObj = Array.from(medItems).map(item => {
         const nombre = (item.querySelector('.med-name')?.value || '').trim();
-        const dosis = parseInt(item.querySelector('.med-dosis')?.value) || 1;
+        const dosis = (item.querySelector('.med-dosis')?.value || '1').trim();
         const freqVal = item.querySelector('.med-freq')?.value || '24h';
-        const cantidad = parseInt(item.querySelector('.med-cantidad')?.value) || 1;
+        const cantidad = (item.querySelector('.med-cantidad')?.value || '1').trim();
+        const duracion = (item.querySelector('.med-duracion')?.value || '').trim();
         
         let freqNum = 1;
         if (freqVal === '12h') freqNum = 2;
@@ -201,7 +202,10 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
         if (freqVal === '48h') freqNum = 0.5;
         if (freqVal === '72h') freqNum = 0.3333;
 
-        const diasCobertura = Math.floor(cantidad / (dosis * freqNum)) || 1;
+        const dosisNum = parseInt(dosis.match(/\d+/)?.[0]) || 1;
+        const cantNum = parseInt(cantidad.match(/\d+/)?.[0]) || 1;
+        const durNum = parseInt(duracion.match(/\d+/)?.[0]);
+        const diasCobertura = !isNaN(durNum) ? durNum : (Math.floor(cantNum / (dosisNum * freqNum)) || 1);
         
         const fechaFin = new Date();
         fechaFin.setDate(fechaFin.getDate() + diasCobertura);
@@ -230,7 +234,8 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
             dosis,
             frecuencia: freqVal,
             cantidad,
-            originalStr: `${nombre} ${clave ? `[Clave: ${clave}]` : ''} ${lote ? `[Lote: ${lote}]` : ''} ${caducidad ? `[Cad: ${caducidad}]` : ''} ${estatusText ? `[Estatus: ${estatusText}]` : ''}`.trim()
+            duracion,
+            originalStr: `${nombre} ${clave ? `[Clave: ${clave}]` : ''} ${lote ? `[Lote: ${lote}]` : ''} ${caducidad ? `[Cad: ${caducidad}]` : ''} ${duracion ? `[Duración: ${duracion}]` : ''} ${estatusText ? `[Estatus: ${estatusText}]` : ''}`.trim()
         };
     }).filter(m => m.nombre !== '');
 
@@ -783,6 +788,7 @@ window.loadPatientSFT = function() {
                         lote: m.lote || '',
                         caducidad: m.caducidad || '',
                         estatus: m.estatus || '',
+                        duracion: m.duracion || '',
                         diasCobertura: m.diasCobertura || 1,
                         fechaFinCobertura: m.fechaFinCobertura || null,
                         dosis: m.dosis !== undefined ? m.dosis : 1,
@@ -821,6 +827,7 @@ window.loadPatientSFT = function() {
             if (m.clave) notas += ` • Clave: ${m.clave}`;
             if (m.lote) notas += ` • Lote: ${m.lote}`;
             if (m.caducidad) notas += ` • Cad: ${m.caducidad}`;
+            if (m.duracion) notas += ` • Duración: ${m.duracion}`;
             if (m.estatus) {
                 const estatusMap = {
                     'AEM': 'AEM - Existencia en casa',
@@ -1553,7 +1560,7 @@ function openOcrModal(data) {
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <div class="form-group" style="flex: 1; min-width: 60px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Dosis</label>
-                        <input type="number" class="ocr-med-dosis ios-input" style="padding: 8px; font-size: 13px;" value="${med.dosis || 1}">
+                        <input type="text" class="ocr-med-dosis ios-input" style="padding: 8px; font-size: 13px;" value="${med.dosis || 1}">
                     </div>
                     <div class="form-group" style="flex: 1.2; min-width: 90px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Frecuencia</label>
@@ -1566,9 +1573,13 @@ function openOcrModal(data) {
                             <option value="72h" ${med.frecuencia === '72h' ? 'selected' : ''}>c/72h</option>
                         </select>
                     </div>
+                    <div class="form-group" style="flex: 1; min-width: 80px;">
+                        <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Duración</label>
+                        <input type="text" class="ocr-med-duracion ios-input" style="padding: 8px; font-size: 13px;" value="${med.duracion || ''}">
+                    </div>
                     <div class="form-group" style="flex: 1; min-width: 70px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Total Cant.</label>
-                        <input type="number" class="ocr-med-cantidad ios-input" style="padding: 8px; font-size: 13px;" value="${med.cantidad || 30}">
+                        <input type="text" class="ocr-med-cantidad ios-input" style="padding: 8px; font-size: 13px;" value="${med.cantidad || ''}">
                     </div>
                 </div>
                 <div class="form-group">
@@ -1618,6 +1629,7 @@ function applyOcrData() {
             const caducidad = row.querySelector('.ocr-med-caducidad').value.trim();
             const dosis = row.querySelector('.ocr-med-dosis').value;
             const freq = row.querySelector('.ocr-med-freq').value;
+            const duracion = row.querySelector('.ocr-med-duracion').value;
             const cantidad = row.querySelector('.ocr-med-cantidad').value;
             const estatus = row.querySelector('.ocr-med-estatus').value;
 
@@ -1644,7 +1656,7 @@ function applyOcrData() {
                     <div class="med-row">
                         <div class="form-group small">
                             <label>Dosis (Unidades)</label>
-                            <input type="number" min="1" class="med-dosis ios-input" required placeholder="Ej. 1" value="${dosis}">
+                            <input type="text" class="med-dosis ios-input" required placeholder="Ej. 22 UI" value="${dosis}">
                         </div>
                         <div class="form-group small">
                             <label>Frecuencia</label>
@@ -1658,8 +1670,12 @@ function applyOcrData() {
                             </select>
                         </div>
                         <div class="form-group small">
+                            <label>Duración</label>
+                            <input type="text" class="med-duracion ios-input" placeholder="Ej. 90 días" value="${duracion}">
+                        </div>
+                        <div class="form-group small">
                             <label>Total Entregado</label>
-                            <input type="number" min="1" class="med-cantidad ios-input" required placeholder="Ej. 30" value="${cantidad}">
+                            <input type="text" class="med-cantidad ios-input" required placeholder="Ej. 1 caja" value="${cantidad}">
                         </div>
                     </div>
                     <div class="form-group" style="margin-top: 12px;">
@@ -1724,7 +1740,7 @@ function addEmptyMedRow() {
             <div class="med-row">
                 <div class="form-group small">
                     <label>Dosis (Unidades)</label>
-                    <input type="number" min="1" class="med-dosis ios-input" required placeholder="Ej. 1" value="1">
+                    <input type="text" class="med-dosis ios-input" required placeholder="Ej. 22 UI" value="1">
                 </div>
                 <div class="form-group small">
                     <label>Frecuencia</label>
@@ -1738,8 +1754,12 @@ function addEmptyMedRow() {
                     </select>
                 </div>
                 <div class="form-group small">
+                    <label>Duración</label>
+                    <input type="text" class="med-duracion ios-input" placeholder="Ej. 90 días">
+                </div>
+                <div class="form-group small">
                     <label>Total Entregado</label>
-                    <input type="number" min="1" class="med-cantidad ios-input" required placeholder="Ej. 30">
+                    <input type="text" class="med-cantidad ios-input" required placeholder="Ej. 1 caja">
                 </div>
             </div>
             <div class="form-group" style="margin-top: 12px;">
