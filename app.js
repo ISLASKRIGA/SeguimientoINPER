@@ -576,7 +576,158 @@ document.addEventListener('DOMContentLoaded', () => {
 // Real Tesseract.js OCR Prescription Parsing
 let currentOcrParsedData = null;
 
-function handleOCRUpload(e) {
+function createEmptyOcrResult() {
+    return {
+        expediente: '',
+        paciente: '',
+        folio: '',
+        medico: '',
+        servicio: '',
+        medicamentos: []
+    };
+}
+
+function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = evt => resolve(evt.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
+}
+
+function canvasToDataURL(canvas, quality = 0.92) {
+    return canvas.toDataURL('image/jpeg', quality);
+}
+
+async function preprocessImageForOCR(dataUrl, stepText) {
+    if (stepText) stepText.innerText = "Optimizando imagen para lectura...";
+
+    const img = await loadImage(dataUrl);
+    const maxSide = 2600;
+    const minSide = 1400;
+    const longest = Math.max(img.naturalWidth, img.naturalHeight);
+    const scale = longest < minSide ? minSide / longest : Math.min(1, maxSide / longest);
+    const width = Math.round(img.naturalWidth * scale);
+    const height = Math.round(img.naturalHeight * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    let total = 0;
+    let totalSq = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+        const gray = (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
+        total += gray;
+        totalSq += gray * gray;
+    }
+
+    const pixels = data.length / 4;
+    const mean = total / pixels;
+    const variance = Math.max(0, (totalSq / pixels) - (mean * mean));
+    const stdDev = Math.sqrt(variance);
+    const threshold = Math.max(118, Math.min(190, mean - (stdDev * 0.18)));
+
+    for (let i = 0; i < data.length; i += 4) {
+        const gray = (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
+        const boosted = Math.max(0, Math.min(255, ((gray - 128) * 1.55) + 128));
+        const value = boosted < threshold ? 0 : 255;
+        data[i] = value;
+        data[i + 1] = value;
+        data[i + 2] = value;
+        data[i + 3] = 255;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return canvasToDataURL(canvas);
+}
+
+function scoreParsedPrescription(parsed, text = '') {
+    if (!parsed) return 0;
+    let score = 0;
+    if (parsed.folio) score += 18;
+    if (parsed.expediente) score += 18;
+    if (parsed.paciente) score += 16;
+    if (parsed.medico) score += 10;
+    if (parsed.servicio) score += 8;
+    score += Math.min(35, (parsed.medicamentos || []).length * 12);
+    score += Math.min(12, Math.floor((text || '').trim().length / 120));
+    return score;
+}
+
+function getOcrOptions(stepText, passLabel) {
+    return {
+        logger: m => {
+            if (m.status === 'recognizing text' || m.status === 'recognizing') {
+                const progress = Math.round((m.progress || 0) * 100);
+                if (stepText) stepText.innerText = passLabel + ': ' + progress + '%...';
+            } else if (m.status && stepText) {
+                const readable = String(m.status).replace(/_/g, ' ');
+                stepText.innerText = passLabel + ': ' + readable;
+            }
+        },
+        tessedit_pageseg_mode: '6',
+        preserve_interword_spaces: '1',
+        user_defined_dpi: '300'
+    };
+}
+
+async function recognizePrescription(dataUrl, stepText) {
+    const processed = await preprocessImageForOCR(dataUrl, stepText);
+    const attempts = [
+        { image: processed, label: "Leyendo receta optimizada", lang: 'spa+eng' },
+        { image: processed, label: "Leyendo receta optimizada", lang: 'spa' },
+        { image: dataUrl, label: "Validando lectura original", lang: 'spa+eng' },
+        { image: dataUrl, label: "Validando lectura original", lang: 'eng' }
+    ];
+    const results = [];
+
+    for (const attempt of attempts) {
+        try {
+            const response = await Tesseract.recognize(
+                attempt.image,
+                attempt.lang,
+                getOcrOptions(stepText, attempt.label)
+            );
+            const text = response?.data?.text || '';
+            const parsed = parsePrescriptionText(text);
+            results.push({
+                text,
+                parsed,
+                score: scoreParsedPrescription(parsed, text)
+            });
+        } catch (err) {
+            console.warn('OCR attempt failed:', attempt.lang, err);
+        }
+    }
+
+    if (results.length === 0) {
+        throw new Error('No OCR attempt completed successfully.');
+    }
+
+    return results.sort((a, b) => b.score - a.score)[0];
+}
+
+async function handleOCRUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -589,73 +740,34 @@ function handleOCRUpload(e) {
         if (stepText) stepText.innerText = "Preparando imagen de receta...";
     }
 
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-        const dataUrl = evt.target.result;
-        
-        if (stepText) stepText.innerText = "Cargando motor de OCR...";
-
+    try {
         if (typeof Tesseract === 'undefined') {
-            console.error("Tesseract is not loaded! Falling back to simulated parser.");
-            useMockOcrData(loader, file.name, '', file.size);
-            return;
+            throw new Error('Tesseract.js no esta cargado. Revise la conexion o el script CDN.');
         }
 
-        Tesseract.recognize(
-            dataUrl,
-            'spa',
-            { 
-                logger: m => {
-                    if (m.status === 'recognizing') {
-                        const progress = Math.round(m.progress * 100);
-                        if (stepText) stepText.innerText = `Digitalizando texto: ${progress}%...`;
-                    }
-                } 
-            }
-        ).then(({ data: { text } }) => {
-            console.log("OCR Extracted Text:\n", text);
-            if (stepText) stepText.innerText = "Analizando y estructurando datos...";
+        if (stepText) stepText.innerText = "Cargando motor de OCR...";
+        const dataUrl = await readFileAsDataURL(file);
+        const best = await recognizePrescription(dataUrl, stepText);
 
-            let parsed = parsePrescriptionText(text);
-            let matched = mergeMockOcrDataIfNeeded(parsed, file.name, text, file.size);
+        console.log("OCR Extracted Text: \n", best.text);
+        if (stepText) stepText.innerText = "Analizando y estructurando datos...";
 
-            if (matched) {
-                setTimeout(() => {
-                    if (loader) loader.classList.remove('active');
-                    openOcrModal(matched);
-                }, 800);
-            } else {
-                setTimeout(() => {
-                    useMockOcrData(loader, file.name, text, file.size, parsed);
-                }, 800);
-            }
-        }).catch(err => {
-            console.error("OCR Error (trying English fallback):", err);
-            if (stepText) stepText.innerText = "Cargando motor OCR alternativo...";
+        const parsed = best.parsed || createEmptyOcrResult();
+        parsed._ocrScore = best.score;
+        parsed._rawText = best.text;
 
-            Tesseract.recognize(
-                dataUrl,
-                'eng',
-                { logger: m => console.log(m) }
-            ).then(({ data: { text } }) => {
-                let parsed = parsePrescriptionText(text);
-                let matched = mergeMockOcrDataIfNeeded(parsed, file.name, text, file.size);
-                
-                if (matched) {
-                    if (loader) loader.classList.remove('active');
-                    openOcrModal(matched);
-                } else {
-                    useMockOcrData(loader, file.name, text, file.size, parsed);
-                }
-            }).catch(retryErr => {
-                console.error("Failed retry with English:", retryErr);
-                useMockOcrData(loader, file.name, '', file.size, null);
-            });
-        });
-    };
-    
-    reader.readAsDataURL(file);
-    if (ocrUpload) ocrUpload.value = '';
+        setTimeout(() => {
+            if (loader) loader.classList.remove('active');
+            openOcrModal(parsed);
+        }, 400);
+    } catch (err) {
+        console.error("OCR Error:", err);
+        if (loader) loader.classList.remove('active');
+        openOcrModal(createEmptyOcrResult());
+        alert("No se pudo completar el OCR. Puede capturar los datos manualmente o intentar con una foto mas enfocada, plana y con buena luz.");
+    } finally {
+        if (ocrUpload) ocrUpload.value = '';
+    }
 }
 
 // SFT Inner Tabs Logic
@@ -1539,7 +1651,11 @@ function normalizeDrugName(name) {
     if (l.includes('cefal')) return "CEFALEXINA 500 MG TABLETA";
     if (l.includes('ondas')) return "ONDASETRON 8 MG TABLETA";
     if (l.includes('ketop')) return "KETOPROFENO 100 MG TABLETA";
-    if (l.includes('esome')) return "ESOMEPRAZOL 40 MG TABLETA";
+    if (l.includes('metfor')) return "METFORMINA 850 MG TABLETA";
+    if (l.includes('esome') || l.includes('omepr') || l.includes('pantop')) return "ESOMEPRAZOL 40 MG TABLETA";
+    if (l.includes('plantago') || l.includes('fibra')) return "PLANTAGO PSYLLIUM POLVO";
+    if (l.includes('folic') || l.includes('fólic')) return "ÁCIDO FÓLICO 5 MG TABLETA";
+    if (l.includes('hierro') || l.includes('fumarato')) return "FUMARATO FERROSO TABLETA";
     if (l.includes('estrog')) return "ESTRÓGENOS CONJUGADOS CREMA VAGINAL";
     if (l.includes('fonda')) return "FONDAPARINUX SÓDICO 2.5 MG";
     if (l.includes('glarg') || l.includes('insul')) {
@@ -1549,6 +1665,38 @@ function normalizeDrugName(name) {
         return "INSULINA GLARGINA ENVASE CON UN FRASCO ÁMPULA CON 10 ML";
     }
     return name.toUpperCase();
+}
+
+function normalizeOcrForParsing(text) {
+    return (text || '')
+        .replace(/\r/g, '\n')
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2013\u2014]/g, '-')
+        .replace(/\|/g, ' ')
+        .replace(/[\t]+/g, ' ')
+        .replace(/ {2,}/g, ' ')
+        .replace(/\n{3,}/g, '\n\n');
+}
+
+function normalizeOcrNumber(value) {
+    return (value || '')
+        .replace(/O/g, '0')
+        .replace(/[ILi|]/g, '1')
+        .replace(/S/g, '5')
+        .replace(/Z/g, '2')
+        .replace(/G/g, '6')
+        .replace(/\s+/g, '')
+        .trim();
+}
+
+function cleanPersonName(value) {
+    return (value || '')
+        .replace(/[^A-ZÁÉÍÓÚÑa-záéíóúñ\s.]/g, ' ')
+        .replace(/\b(?:DR|DRA|MEDICO|MEDICA|PACIENTE|NOMBRE)\b\.?/ig, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase();
 }
 
 // Regex-based OCR parser
@@ -1609,7 +1757,8 @@ function parsePrescriptionText(text) {
         return null;
     }
 
-    const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const normalizedText = normalizeOcrForParsing(text);
+    const rawLines = normalizedText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     
     // Pre-process rawLines to merge split Claves
     for (let i = 0; i < rawLines.length - 1; i++) {
@@ -1638,11 +1787,7 @@ function parsePrescriptionText(text) {
         const match = line.match(folioRegex);
         if (match) {
             let val = (match[1] || match[2] || match[3] || match[4]).trim();
-            val = val.replace(/O/g, '0')
-                     .replace(/[ILi|]/g, '1')
-                     .replace(/S/g, '5')
-                     .replace(/Z/g, '2')
-                     .replace(/G/g, '6');
+            val = normalizeOcrNumber(val);
             result.folio = val;
             break;
         }
@@ -1654,11 +1799,7 @@ function parsePrescriptionText(text) {
         const match = line.match(expRegex);
         if (match) {
             let val = (match[1] || match[2]).replace(/\s+/g, '').trim();
-            val = val.replace(/O/g, '0')
-                     .replace(/[ILi|]/g, '1')
-                     .replace(/S/g, '5')
-                     .replace(/Z/g, '2')
-                     .replace(/G/g, '6');
+            val = normalizeOcrNumber(val);
             result.expediente = val;
             break;
         }
@@ -1707,7 +1848,7 @@ function parsePrescriptionText(text) {
         }
         
         // Clean up the name string
-        let pName = namePart.replace(/[^A-ZÁÉÍÓÚÑa-záéíóúñ\s]/ig, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+        let pName = cleanPersonName(namePart);
         if (pName.length > 5 && !pName.includes('MEDICO') && !pName.includes('DR') && !pName.includes('DRA') && !pName.includes('INSTITUTO')) {
             result.paciente = pName;
         }
@@ -1795,7 +1936,7 @@ function parsePrescriptionText(text) {
 
     // Medications
     let currentMed = null;
-    const drugSubRoots = ['para', 'ibup', 'amox', 'clav', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ketop', 'esome', 'estrog', 'fonda'];
+    const drugSubRoots = ['para', 'cetam', 'ibup', 'buprof', 'amox', 'clav', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ondan', 'ketop', 'esome', 'omepr', 'pantop', 'estrog', 'fonda', 'plantago', 'fibra', 'ácido', 'acido', 'folic', 'hierro', 'nifed', 'metildopa', 'levot', 'enox', 'hepar'];
 
     for (let i = 0; i < rawLines.length; i++) {
         const line = rawLines[i];
@@ -1921,7 +2062,49 @@ function parsePrescriptionText(text) {
         result.medicamentos.push(currentMed);
     }
 
+    if (result.medicamentos.length === 0) {
+        const claveRows = rawLines.filter(line => /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/.test(line));
+        for (const row of claveRows) {
+            const clave = row.match(/\b(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})[-.\s]?(\d{2})\b/);
+            let name = cleanOcrText(row)
+                .replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/g, ' ')
+                .replace(/\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|cantidad|estatus)\b/ig, ' ')
+                .replace(/\b(?:c\/\d+h|cada\s+\d+\s+horas|\d+\s*(?:dias|días|cajas?|piezas?|frascos?))\b/ig, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (name.length < 4) continue;
+            result.medicamentos.push({
+                nombre: normalizeDrugName(name),
+                clave: clave ? clave.slice(1).join('.') : '',
+                lote: extractLote(row, excludeList) || '',
+                caducidad: extractCaducidad(row) || '',
+                estatus: /\b(EPI|AEM|AIC|AT|IES)\b/i.test(row) ? row.match(/\b(EPI|AEM|AIC|AT|IES)\b/i)[1].toUpperCase() : 'AIC',
+                dosis: (row.match(/\b\d+\s*(?:ui|mg|g|ml|mcg|tabletas?|tabs?|capsulas?|cápsulas?)\b/i) || ['1'])[0].toUpperCase(),
+                frecuencia: ((row.match(/c\/(24|12|8|6|48|72)h/i) || [,'24'])[1]) + 'h',
+                duracion: (row.match(/\b\d+\s*(?:dias|días|mes|meses|semanas|sem)\b/i) || [''])[0],
+                cantidad: (row.match(/\b(?:\d+|una|un)\s*(?:cajas?|frascos?|piezas?|unidades?)\b/i) || ['1'])[0]
+            });
+        }
+    }
+
+    result.medicamentos = result.medicamentos
+        .filter(med => med && med.nombre && !/^(CLAVE|MEDICAMENTO|DOSIS|VIA|VÍA)$/i.test(med.nombre))
+        .map(med => ({
+            ...med,
+            nombre: normalizeDrugName(med.nombre).replace(/\s+/g, ' ').trim(),
+            clave: (med.clave || '').replace(/(\d{3})[.\s-]?(\d{3})[.\s-]?(\d{4})[.\s-]?(\d{2})/, '$1.$2.$3.$4')
+        }));
+
     return result;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // Display OCR verification modal
@@ -1952,26 +2135,26 @@ function openOcrModal(data) {
             medDiv.innerHTML = `
                 <div class="form-group">
                     <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Medicamento ${idx + 1}</label>
-                    <input type="text" class="ocr-med-name ios-input" style="padding: 8px; font-size: 14px;" value="${med.nombre || ''}">
+                    <input type="text" class="ocr-med-name ios-input" style="padding: 8px; font-size: 14px;" value="${escapeHtml(med.nombre || '')}">
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <div class="form-group" style="flex: 1; min-width: 80px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Clave</label>
-                        <input type="text" class="ocr-med-clave ios-input" style="padding: 8px; font-size: 13px;" value="${med.clave || ''}">
+                        <input type="text" class="ocr-med-clave ios-input" style="padding: 8px; font-size: 13px;" value="${escapeHtml(med.clave || '')}">
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 80px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Lote</label>
-                        <input type="text" class="ocr-med-lote ios-input" style="padding: 8px; font-size: 13px;" value="${med.lote || ''}">
+                        <input type="text" class="ocr-med-lote ios-input" style="padding: 8px; font-size: 13px;" value="${escapeHtml(med.lote || '')}">
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 80px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Caducidad</label>
-                        <input type="text" class="ocr-med-caducidad ios-input" style="padding: 8px; font-size: 13px;" value="${med.caducidad || ''}">
+                        <input type="text" class="ocr-med-caducidad ios-input" style="padding: 8px; font-size: 13px;" value="${escapeHtml(med.caducidad || '')}">
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <div class="form-group" style="flex: 1; min-width: 60px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Dosis</label>
-                        <input type="text" class="ocr-med-dosis ios-input" style="padding: 8px; font-size: 13px;" value="${med.dosis || 1}">
+                        <input type="text" class="ocr-med-dosis ios-input" style="padding: 8px; font-size: 13px;" value="${escapeHtml(med.dosis || 1)}">
                     </div>
                     <div class="form-group" style="flex: 1.2; min-width: 90px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Frecuencia</label>
@@ -1986,11 +2169,11 @@ function openOcrModal(data) {
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 80px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Duración</label>
-                        <input type="text" class="ocr-med-duracion ios-input" style="padding: 8px; font-size: 13px;" value="${med.duracion || ''}">
+                        <input type="text" class="ocr-med-duracion ios-input" style="padding: 8px; font-size: 13px;" value="${escapeHtml(med.duracion || '')}">
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 70px;">
                         <label style="font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 2px;">Total Cant.</label>
-                        <input type="text" class="ocr-med-cantidad ios-input" style="padding: 8px; font-size: 13px;" value="${med.cantidad || ''}">
+                        <input type="text" class="ocr-med-cantidad ios-input" style="padding: 8px; font-size: 13px;" value="${escapeHtml(med.cantidad || '')}">
                     </div>
                 </div>
                 <div class="form-group">
@@ -2048,26 +2231,26 @@ function applyOcrData() {
                 <div class="prescription-item ios-med-item">
                     <div class="form-group large">
                         <label>Medicamento</label>
-                        <input type="text" class="med-name ios-input" required placeholder="Ej. Ácido Fólico 5mg" autocomplete="off" value="${name}">
+                        <input type="text" class="med-name ios-input" required placeholder="Ej. Ácido Fólico 5mg" autocomplete="off" value="${escapeHtml(name)}">
                     </div>
                     <div class="med-row">
                         <div class="form-group small clave-group">
                             <label>Clave</label>
-                            <input type="text" class="med-clave ios-input" placeholder="Ej. 010.000.1506.00" value="${clave}">
+                            <input type="text" class="med-clave ios-input" placeholder="Ej. 010.000.1506.00" value="${escapeHtml(clave)}">
                         </div>
                         <div class="form-group small">
                             <label>Lote</label>
-                            <input type="text" class="med-lote ios-input" placeholder="Ej. SE14344A" value="${lote}">
+                            <input type="text" class="med-lote ios-input" placeholder="Ej. SE14344A" value="${escapeHtml(lote)}">
                         </div>
                         <div class="form-group small">
                             <label>Caducidad</label>
-                            <input type="text" class="med-caducidad ios-input" placeholder="Ej. MAY-27" value="${caducidad}">
+                            <input type="text" class="med-caducidad ios-input" placeholder="Ej. MAY-27" value="${escapeHtml(caducidad)}">
                         </div>
                     </div>
                     <div class="med-row">
                         <div class="form-group small">
                             <label>Dosis (Unidades)</label>
-                            <input type="text" class="med-dosis ios-input" required placeholder="Ej. 22 UI" value="${dosis}">
+                            <input type="text" class="med-dosis ios-input" required placeholder="Ej. 22 UI" value="${escapeHtml(dosis)}">
                         </div>
                         <div class="form-group small">
                             <label>Frecuencia</label>
@@ -2082,11 +2265,11 @@ function applyOcrData() {
                         </div>
                         <div class="form-group small">
                             <label>Duración</label>
-                            <input type="text" class="med-duracion ios-input" placeholder="Ej. 90 días" value="${duracion}">
+                            <input type="text" class="med-duracion ios-input" placeholder="Ej. 90 días" value="${escapeHtml(duracion)}">
                         </div>
                         <div class="form-group small">
                             <label>Total Entregado</label>
-                            <input type="text" class="med-cantidad ios-input" required placeholder="Ej. 1 caja" value="${cantidad}">
+                            <input type="text" class="med-cantidad ios-input" required placeholder="Ej. 1 caja" value="${escapeHtml(cantidad)}">
                         </div>
                     </div>
                     <div class="form-group" style="margin-top: 12px;">
@@ -2197,4 +2380,6 @@ function addEmptyMedRow() {
     });
     list.appendChild(newRow);
 }
+
+
 
