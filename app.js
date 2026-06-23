@@ -661,38 +661,85 @@ async function preprocessImageForOCR(dataUrl, stepText) {
     return canvasToDataURL(canvas);
 }
 
+function cropImageRegionForOCR(dataUrl, region, options = {}) {
+    return loadImage(dataUrl).then(img => {
+        const sourceW = img.naturalWidth;
+        const sourceH = img.naturalHeight;
+        const sx = Math.max(0, Math.round(region.x * sourceW));
+        const sy = Math.max(0, Math.round(region.y * sourceH));
+        const sw = Math.min(sourceW - sx, Math.round(region.w * sourceW));
+        const sh = Math.min(sourceH - sy, Math.round(region.h * sourceH));
+        const scale = options.scale || 2.4;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(sw * scale));
+        canvas.height = Math.max(1, Math.round(sh * scale));
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            const gray = (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
+            const boosted = Math.max(0, Math.min(255, ((gray - 128) * 1.9) + 142));
+            const value = boosted < (options.threshold || 172) ? 0 : 255;
+            data[i] = value;
+            data[i + 1] = value;
+            data[i + 2] = value;
+            data[i + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        return canvasToDataURL(canvas, 0.95);
+    });
+}
+
+function compactOcrDigits(value) {
+    return normalizeOcrNumber(value || '').replace(/[^0-9]/g, '');
+}
+
+function normalizeClave(value) {
+    const digits = compactOcrDigits(value);
+    if (digits.length < 10) return '';
+    const normalized = digits.startsWith('10') && !digits.startsWith('010') ? '0' + digits : digits;
+    const twelve = normalized.slice(0, 12);
+    if (twelve.length !== 12 || !twelve.startsWith('010')) return '';
+    return twelve.slice(0, 3) + '.' + twelve.slice(3, 6) + '.' + twelve.slice(6, 10) + '.' + twelve.slice(10, 12);
+}
+
+async function recognizeRegionText(dataUrl, region, label, options = {}) {
+    const cropped = await cropImageRegionForOCR(dataUrl, region, options);
+    const response = await Tesseract.recognize(
+        cropped,
+        options.lang || 'spa+eng',
+        {
+            ...getOcrOptions(null, label),
+            tessedit_pageseg_mode: options.psm || '6',
+            tessedit_char_whitelist: options.whitelist || undefined
+        }
+    );
+    return response?.data?.text || '';
+}
+
 function scoreParsedPrescription(parsed, text = '') {
     if (!parsed) return 0;
     let score = 0;
     if (parsed.folio) score += 18;
-    if (parsed.expediente) score += 18;
+    if (parsed.expediente) score += 22;
     if (parsed.paciente) score += 16;
     if (parsed.medico) score += 10;
     if (parsed.servicio) score += 8;
-    score += Math.min(35, (parsed.medicamentos || []).length * 12);
+    score += Math.min(40, (parsed.medicamentos || []).length * 12);
+    score += (parsed.medicamentos || []).filter(med => med.clave).length * 8;
     score += Math.min(12, Math.floor((text || '').trim().length / 120));
     return score;
 }
 
-function getOcrOptions(stepText, passLabel) {
-    return {
-        logger: m => {
-            if (m.status === 'recognizing text' || m.status === 'recognizing') {
-                const progress = Math.round((m.progress || 0) * 100);
-                if (stepText) stepText.innerText = passLabel + ': ' + progress + '%...';
-            } else if (m.status && stepText) {
-                const readable = String(m.status).replace(/_/g, ' ');
-                stepText.innerText = passLabel + ': ' + readable;
-            }
-        },
-        tessedit_pageseg_mode: '6',
-        preserve_interword_spaces: '1',
-        user_defined_dpi: '300'
-    };
-}
-
 async function recognizePrescription(dataUrl, stepText) {
     const processed = await preprocessImageForOCR(dataUrl, stepText);
+    const regionalText = await recognizePrescriptionRegions(dataUrl, stepText);
     const attempts = [
         { image: processed, label: "Leyendo receta optimizada", lang: 'spa+eng' },
         { image: processed, label: "Leyendo receta optimizada", lang: 'spa' },
@@ -708,7 +755,7 @@ async function recognizePrescription(dataUrl, stepText) {
                 attempt.lang,
                 getOcrOptions(stepText, attempt.label)
             );
-            const text = response?.data?.text || '';
+            const text = [response?.data?.text || '', regionalText].filter(Boolean).join('\n');
             const parsed = parsePrescriptionText(text);
             results.push({
                 text,
@@ -718,6 +765,11 @@ async function recognizePrescription(dataUrl, stepText) {
         } catch (err) {
             console.warn('OCR attempt failed:', attempt.lang, err);
         }
+    }
+
+    if (results.length === 0 && regionalText) {
+        const parsed = parsePrescriptionText(regionalText);
+        results.push({ text: regionalText, parsed, score: scoreParsedPrescription(parsed, regionalText) });
     }
 
     if (results.length === 0) {
@@ -1643,7 +1695,7 @@ function normalizeDrugName(name) {
     const l = name.toLowerCase();
     if (l.includes('parac') || l.includes('cetam')) return "PARACETAMOL 500 MG TABLETA";
     if (l.includes('ibup') || l.includes('buprof')) return "IBUPROFENO TABLETA O CÁPSULA 400 MG";
-    if (l.includes('amox') || l.includes('clav')) return "AMOXICILINA / ÁCIDO CLAVULÁNICO 875 MG / 125 MG";
+    if (l.includes('amox') || l.includes('clavulan')) return "AMOXICILINA / ÁCIDO CLAVULÁNICO 875 MG / 125 MG";
     if (l.includes('losar')) return "LOSARTÁN 50 MG GRAGEA O COMPRIMIDO RECUBIERTO";
     if (l.includes('preg')) return "PREGABALINA 75 MG CÁPSULA";
     if (l.includes('sitag')) return "SITAGLIPTINA METFORMINA COMPRIMIDO 50 MG";
@@ -1805,6 +1857,16 @@ function parsePrescriptionText(text) {
         }
     }
 
+    if (!result.expediente) {
+        const topRightIdx = rawLines.findIndex(line => /REGION\s+top-right-expediente/i.test(line));
+        const topRightLines = topRightIdx === -1 ? [] : rawLines.slice(topRightIdx + 1, topRightIdx + 8);
+        const candidates = topRightLines
+            .map(line => compactOcrDigits(line))
+            .filter(num => /^\d{9}$/.test(num) || /^\d{8,10}$/.test(num));
+        const likelyExp = candidates.find(num => num.endsWith('010')) || candidates[0];
+        if (likelyExp) result.expediente = likelyExp;
+    }
+
     // Paciente Name (using relative positioning and label-stripping)
     let folioLineIdx = -1;
     for (let i = 0; i < rawLines.length; i++) {
@@ -1936,13 +1998,17 @@ function parsePrescriptionText(text) {
 
     // Medications
     let currentMed = null;
-    const drugSubRoots = ['para', 'cetam', 'ibup', 'buprof', 'amox', 'clav', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ondan', 'ketop', 'esome', 'omepr', 'pantop', 'estrog', 'fonda', 'plantago', 'fibra', 'ácido', 'acido', 'folic', 'hierro', 'nifed', 'metildopa', 'levot', 'enox', 'hepar'];
+    let pendingClave = '';
+    const drugSubRoots = ['para', 'cetam', 'ibup', 'buprof', 'amox', 'clavulan', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ondan', 'ketop', 'esome', 'omepr', 'pantop', 'estrog', 'fonda', 'plantago', 'fibra', 'ácido', 'acido', 'folic', 'hierro', 'nifed', 'metildopa', 'levot', 'enox', 'hepar'];
 
     for (let i = 0; i < rawLines.length; i++) {
         const line = rawLines[i];
         const cleanLine = cleanedLines[i];
+        if (/^REGION\s+/i.test(line)) continue;
         
         const claveMatch = line.match(/\b(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})[-.\s]?(\d{2})\b/);
+        const claveValue = normalizeClave(line);
+        if (claveValue && !currentMed) pendingClave = claveValue;
         const freqMatch = line.match(/\b(c\/24h|c\/12h|c\/8h|c\/6h|c\/48h|c\/72h|cada\s+\d+\s+horas|c\/\d+h)\b/i);
 
         let isDrugLine = false;
@@ -1979,7 +2045,7 @@ function parsePrescriptionText(text) {
 
             currentMed = {
                 nombre: finalName,
-                clave: '',
+                clave: pendingClave,
                 lote: '',
                 caducidad: '',
                 estatus: 'AIC',
@@ -1988,10 +2054,13 @@ function parsePrescriptionText(text) {
                 duracion: '',
                 cantidad: '1'
             };
+            pendingClave = '';
         }
 
         if (currentMed) {
-            if (claveMatch) {
+            if (claveValue) {
+                currentMed.clave = claveValue;
+            } else if (claveMatch) {
                 currentMed.clave = `${claveMatch[1]}.${claveMatch[2]}.${claveMatch[3]}.${claveMatch[4]}`;
             }
             
@@ -2066,6 +2135,7 @@ function parsePrescriptionText(text) {
         const claveRows = rawLines.filter(line => /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/.test(line));
         for (const row of claveRows) {
             const clave = row.match(/\b(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})[-.\s]?(\d{2})\b/);
+            const claveValue = normalizeClave(row);
             let name = cleanOcrText(row)
                 .replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/g, ' ')
                 .replace(/\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|cantidad|estatus)\b/ig, ' ')
@@ -2075,7 +2145,7 @@ function parsePrescriptionText(text) {
             if (name.length < 4) continue;
             result.medicamentos.push({
                 nombre: normalizeDrugName(name),
-                clave: clave ? clave.slice(1).join('.') : '',
+                clave: claveValue || (clave ? clave.slice(1).join('.') : ''),
                 lote: extractLote(row, excludeList) || '',
                 caducidad: extractCaducidad(row) || '',
                 estatus: /\b(EPI|AEM|AIC|AT|IES)\b/i.test(row) ? row.match(/\b(EPI|AEM|AIC|AT|IES)\b/i)[1].toUpperCase() : 'AIC',
@@ -2092,7 +2162,7 @@ function parsePrescriptionText(text) {
         .map(med => ({
             ...med,
             nombre: normalizeDrugName(med.nombre).replace(/\s+/g, ' ').trim(),
-            clave: (med.clave || '').replace(/(\d{3})[.\s-]?(\d{3})[.\s-]?(\d{4})[.\s-]?(\d{2})/, '$1.$2.$3.$4')
+            clave: normalizeClave(med.clave) || (med.clave || '').replace(/(\d{3})[.\s-]?(\d{3})[.\s-]?(\d{4})[.\s-]?(\d{2})/, '$1.$2.$3.$4')
         }));
 
     return result;
