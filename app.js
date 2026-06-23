@@ -160,6 +160,7 @@ document.getElementById('btn-add-med').addEventListener('click', () => {
     const clone = firstItem.cloneNode(true);
     // clean inputs
     clone.querySelectorAll('input').forEach(input => input.value = '');
+    clone.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
     // add remove listener
     clone.querySelector('.btn-icon.danger').addEventListener('click', function() {
         if(list.children.length > 1) {
@@ -208,18 +209,28 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
         const clave = (item.querySelector('.med-clave')?.value || '').trim();
         const lote = (item.querySelector('.med-lote')?.value || '').trim();
         const caducidad = (item.querySelector('.med-caducidad')?.value || '').trim();
+        const estatus = (item.querySelector('.med-estatus')?.value || '').trim();
+        const estatusMap = {
+            'AEM': 'AEM - Existencia en casa',
+            'AIC': 'AIC - Existencia en clínica',
+            'EPI': 'EPI - Entrega parcial de insumo',
+            'AT': 'AT - Acumulado',
+            'IES': 'IES - Incumplimiento en entrega de insumo'
+        };
+        const estatusText = estatusMap[estatus] || estatus;
 
         return {
             nombre,
             clave,
             lote,
             caducidad,
+            estatus,
             diasCobertura,
             fechaFinCobertura: fechaFin.toISOString(),
             dosis,
             frecuencia: freqVal,
             cantidad,
-            originalStr: `${nombre} ${clave ? `[Clave: ${clave}]` : ''} ${lote ? `[Lote: ${lote}]` : ''} ${caducidad ? `[Cad: ${caducidad}]` : ''}`.trim()
+            originalStr: `${nombre} ${clave ? `[Clave: ${clave}]` : ''} ${lote ? `[Lote: ${lote}]` : ''} ${caducidad ? `[Cad: ${caducidad}]` : ''} ${estatusText ? `[Estatus: ${estatusText}]` : ''}`.trim()
         };
     }).filter(m => m.nombre !== '');
 
@@ -604,6 +615,7 @@ function handleOCRUpload(e) {
                         const dosisInput = firstItem.querySelector('.med-dosis');
                         const freqSelect = firstItem.querySelector('.med-freq');
                         const cantInput = firstItem.querySelector('.med-cantidad');
+                        const estatusSelect = firstItem.querySelector('.med-estatus');
 
                         if (nameInput) nameInput.value = "ESTRÓGENOS CONJUGADOS Crema Vaginal";
                         if (claveInput) claveInput.value = "010.000.1506.00";
@@ -612,6 +624,7 @@ function handleOCRUpload(e) {
                         if (dosisInput) dosisInput.value = "1";
                         if (freqSelect) freqSelect.value = "72h";
                         if (cantInput) cantInput.value = "1";
+                        if (estatusSelect) estatusSelect.value = "AIC";
                     }
                 }
 
@@ -762,6 +775,7 @@ window.loadPatientSFT = function() {
                         clave: m.clave || '',
                         lote: m.lote || '',
                         caducidad: m.caducidad || '',
+                        estatus: m.estatus || '',
                         diasCobertura: m.diasCobertura || 1,
                         fechaFinCobertura: m.fechaFinCobertura || null,
                         dosis: m.dosis !== undefined ? m.dosis : 1,
@@ -800,6 +814,17 @@ window.loadPatientSFT = function() {
             if (m.clave) notas += ` • Clave: ${m.clave}`;
             if (m.lote) notas += ` • Lote: ${m.lote}`;
             if (m.caducidad) notas += ` • Cad: ${m.caducidad}`;
+            if (m.estatus) {
+                const estatusMap = {
+                    'AEM': 'AEM - Existencia en casa',
+                    'AIC': 'AIC - Existencia en clínica',
+                    'EPI': 'EPI - Entrega parcial de insumo',
+                    'AT': 'AT - Acumulado',
+                    'IES': 'IES - Incumplimiento en entrega de insumo'
+                };
+                const estatusText = estatusMap[m.estatus] || m.estatus;
+                notas += ` • Estatus: ${estatusText}`;
+            }
 
             return `
                 <div class="med-item">
