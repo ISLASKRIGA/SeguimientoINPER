@@ -1397,7 +1397,15 @@ function mergeMockOcrDataIfNeeded(parsed, filename, rawText = '', fileSize = 0) 
 }
 
 function useMockOcrData(loader, filename, rawText = '', fileSize = 0, parsed = null) {
-    showRecipeSelector(loader, parsed);
+    if (loader) loader.classList.remove('active');
+    openOcrModal(parsed || {
+        folio: "",
+        expediente: "",
+        paciente: "",
+        medico: "",
+        servicio: "",
+        medicamentos: []
+    });
 }
 
 function showRecipeSelector(loader, parsed = null) {
@@ -1502,12 +1510,19 @@ function showRecipeSelector(loader, parsed = null) {
 function cleanOcrText(str) {
     if (!str) return '';
     return str
-        .replace(/\b1\b/g, 'I')
-        .replace(/([A-Z])1([A-Z])/g, '$1I$2')
-        .replace(/([A-Z])0([A-Z])/g, '$1O$2')
-        .replace(/([A-Z])4([A-Z])/g, '$1A$2')
-        .replace(/([A-Z])3([A-Z])/g, '$1E$2')
-        .replace(/([A-Z])5([A-Z])/g, '$1S$2')
+        // Numbers inside letters (case-insensitive, handles accented letters)
+        .replace(/([A-ZÁÉÍÓÚÑ])1([A-ZÁÉÍÓÚÑ])/ig, '$1I$2')
+        .replace(/([A-ZÁÉÍÓÚÑ])0([A-ZÁÉÍÓÚÑ])/ig, '$1O$2')
+        .replace(/([A-ZÁÉÍÓÚÑ])3([A-ZÁÉÍÓÚÑ])/ig, '$1E$2')
+        .replace(/([A-ZÁÉÍÓÚÑ])4([A-ZÁÉÍÓÚÑ])/ig, '$1A$2')
+        .replace(/([A-ZÁÉÍÓÚÑ])5([A-ZÁÉÍÓÚÑ])/ig, '$1S$2')
+        // Numbers at start of alphabetical words
+        .replace(/\b1([A-ZÁÉÍÓÚÑ]{2,})\b/ig, 'I$1')
+        .replace(/\b0([A-ZÁÉÍÓÚÑ]{2,})\b/ig, 'O$1')
+        .replace(/\b5([A-ZÁÉÍÓÚÑ]{2,})\b/ig, 'S$1')
+        // Numbers at end of alphabetical words
+        .replace(/\b([A-ZÁÉÍÓÚÑ]{2,})1\b/ig, '$1I')
+        .replace(/\b([A-ZÁÉÍÓÚÑ]{2,})0\b/ig, '$1O')
         .trim();
 }
 
@@ -1583,80 +1598,96 @@ function parsePrescriptionText(text) {
 
             if (/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{4,12}$/.test(word)) {
                 let val = word.toUpperCase();
-                if (val.includes('1224120')) return '1224120512'; // Normalize using hand-written rules (raya abajo is 5, else 2)
+                if (val.includes('1224120')) return '1224120512'; // Normalize using hand-written rules
                 return val;
             }
             if (/^\d{8,12}$/.test(word)) {
-                if (word.includes('1224120')) return '1224120512'; // Normalize using hand-written rules (raya abajo is 5, else 2)
+                if (word.includes('1224120')) return '1224120512';
                 return word;
             }
         }
         return null;
     }
 
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-    // Pre-process lines to merge split Claves (which are often printed on two lines: 010.000. and 4158.01)
-    for (let i = 0; i < lines.length - 1; i++) {
-        const lineA = lines[i];
-        const lineB = lines[i + 1];
-        
-        // Match first part like 010.000 or 010 000 or 010000
+    const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    // Pre-process rawLines to merge split Claves
+    for (let i = 0; i < rawLines.length - 1; i++) {
+        const lineA = rawLines[i];
+        const lineB = rawLines[i + 1];
         const matchA = lineA.match(/\b(\d{3})[-.\s]?(\d{3})\b/);
-        // Match second part like 4158.01 or 4158 01 or 415801
         const matchB = lineB.match(/\b(\d{4})[-.\s]?(\d{2})\b/);
         
         if (matchA && matchB) {
-            // Verify if these look like split parts of a 12-digit Clave starting with 010
             const potentialMerged = `${matchA[1]}${matchA[2]}${matchB[1]}${matchB[2]}`;
             if (potentialMerged.startsWith('010') && potentialMerged.length === 12) {
                 const mergedClave = `${matchA[1]}.${matchA[2]}.${matchB[1]}.${matchB[2]}`;
-                // Replace the partial match in lineA with the merged clave and append lineB details
-                lines[i] = lineA.replace(matchA[0], mergedClave) + " " + lineB.replace(matchB[0], '');
-                lines.splice(i + 1, 1);
-                i--; // Re-evaluate index since we spliced the array
+                rawLines[i] = lineA.replace(matchA[0], mergedClave) + " " + lineB.replace(matchB[0], '');
+                rawLines.splice(i + 1, 1);
+                i--;
             }
         }
     }
 
+    // Cleaned lines for text parsing (drugs, patient, doctor, service)
+    const cleanedLines = rawLines.map(l => cleanOcrText(l));
+
     // Folio (R-XXXXX or 2026-XXXXXXXX, or 7-digit starting with 30)
-    const folioRegex = /(?:folio|receta|no\.?\s*receta|no\.?\s*folio)[:\s]+([A-Z0-9-]{5,20})|([A-Z0-9]{3,4}-\d{5,10})|\b(\d{4}-\d{8})\b|\b(30\d{5})\b/i;
-    for (const line of lines) {
+    const folioRegex = /(?:folio|receta|no\.?\s*receta|no\.?\s*folio)[:\s]+([A-Z0-9-]{5,20})|([A-Z0-9]{3,4}-\d{5,10})|\b(\d{4}-\d{8})\b|\b(3[0O\d][A-Z0-9]{5})\b/i;
+    for (const line of rawLines) {
         const match = line.match(folioRegex);
         if (match) {
-            result.folio = (match[1] || match[2] || match[3] || match[4]).trim();
+            let val = (match[1] || match[2] || match[3] || match[4]).trim();
+            val = val.replace(/O/g, '0')
+                     .replace(/[ILi|]/g, '1')
+                     .replace(/S/g, '5')
+                     .replace(/Z/g, '2')
+                     .replace(/G/g, '6');
+            result.folio = val;
             break;
         }
     }
 
     // Expediente (9 digits typically, with optional spaces, or INP-XXXX)
-    const expRegex = /(?:expediente|exp\.?|no\.?\s*exp)[:\s]+([A-Z0-9-]{5,15})|\b(\d{3}\s*\d{3}\s*\d{3})\b/i;
-    for (const line of lines) {
+    const expRegex = /(?:expediente|exp\.?|no\.?\s*exp)[:\s]+([A-Z0-9-]{5,15})|\b([0-9OI]{3}\s*[0-9OI\s]{3}\s*[0-9OI]{3})\b/i;
+    for (const line of rawLines) {
         const match = line.match(expRegex);
         if (match) {
-            result.expediente = (match[1] || match[2]).replace(/\s+/g, '').trim();
+            let val = (match[1] || match[2]).replace(/\s+/g, '').trim();
+            val = val.replace(/O/g, '0')
+                     .replace(/[ILi|]/g, '1')
+                     .replace(/S/g, '5')
+                     .replace(/Z/g, '2')
+                     .replace(/G/g, '6');
+            result.expediente = val;
             break;
         }
     }
 
     // Paciente Name (using the improved pattern with lookahead to prevent CURP letters from merging into the name)
     const nameRegex = /(?:paciente|nombre\s+del\s+paciente|nombre)[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\s*(?:CURP|EDAD|FECHA|\/|\b[A-Z]{4}\d{6}|\b\d|\n|$))/i;
-    for (const line of lines) {
+    for (const line of cleanedLines) {
         const match = line.match(nameRegex);
         if (match && !match[1].toLowerCase().includes('médico') && !match[1].toLowerCase().includes('dr')) {
             let pName = match[1].trim().toUpperCase();
-            // Remove noise suffixes like " _", " -", " /" or single characters at the end
             pName = pName.replace(/\s+[^A-Z0-9\s]$/g, '').trim();
-            result.paciente = cleanOcrText(pName);
+            result.paciente = pName;
             break;
         }
     }
     if (!result.paciente) {
-        for (const line of lines) {
-            if (/^[A-Z0-9ÁÉÍÓÚÑ\s]{10,45}$/.test(line)) {
-                if (!line.includes('DR.') && !line.includes('DRA.') && !line.includes('MEDICO') && !line.includes('INSTITUTO') && !line.includes('SERVICIO')) {
-                    result.paciente = cleanOcrText(line.trim().toUpperCase());
-                    break;
+        // Fallback: look for a line containing 2 to 4 capitalized words, no numbers, length between 10 and 50
+        const nameKeywordsToAvoid = ['dr', 'dra', 'médico', 'medico', 'instituto', 'servicio', 'receta', 'folio', 'expediente', 'fecha', 'edad', 'curp', 'cédula', 'cedula', 'firma', 'nacional', 'perinatal', 'coordinación', 'coordinacion', 'subdirección', 'subdireccion', 'departamento', 'depto', 'dirección', 'direccion', 'hospital', 'farmacia', 'avenida', 'calle', 'colonia', 'teléfono', 'telefono'];
+        for (const line of cleanedLines) {
+            const cleanLine = line.trim().toUpperCase();
+            if (cleanLine.length >= 10 && cleanLine.length <= 50 && /^([A-ZÁÉÍÓÚÑ]+\s*)+$/.test(cleanLine)) {
+                const words = cleanLine.split(/\s+/);
+                if (words.length >= 2 && words.length <= 6) {
+                    const hasAvoid = nameKeywordsToAvoid.some(kw => cleanLine.toLowerCase().includes(kw));
+                    if (!hasAvoid) {
+                        result.paciente = cleanLine;
+                        break;
+                    }
                 }
             }
         }
@@ -1665,20 +1696,33 @@ function parsePrescriptionText(text) {
     // Doctor (supporting médico/a or medico/a and lookahead)
     let docLineIdx = -1;
     const docRegex = /(?:médico\/a|medico\/a|médico|medico|doctor|dr\.?|dra\.?|médico\s+tratante)[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s\.\-]+?)(?=\s*(?:Cédula|Cedula|Firma|\/|\b\d|\n|$))/i;
-    for (let i = 0; i < lines.length; i++) {
-        const match = lines[i].match(docRegex);
+    for (let i = 0; i < cleanedLines.length; i++) {
+        const match = cleanedLines[i].match(docRegex);
         if (match) {
-            result.medico = cleanOcrText((match[1] || match[2] || match[3]).trim().toUpperCase());
+            result.medico = match[1].trim().toUpperCase();
             docLineIdx = i;
             break;
+        }
+    }
+    if (!result.medico) {
+        // Fallback: look for a line starting with DR/DRA
+        for (let i = 0; i < cleanedLines.length; i++) {
+            const cleanLine = cleanedLines[i].trim().toUpperCase();
+            if (/^(DR|DRA|DR\.|DRA\.)\s+[A-ZÁÉÍÓÚÑ\s\.\-]+$/i.test(cleanLine)) {
+                const docName = cleanLine.replace(/^(DR|DRA|DR\.|DRA\.)\s+/i, '').trim();
+                if (docName.length > 5) {
+                    result.medico = docName;
+                    docLineIdx = i;
+                    break;
+                }
+            }
         }
     }
 
     // Extract Servicio - prioritizing positioning right above the doctor line (after the table)
     if (docLineIdx > 0) {
         for (let j = docLineIdx - 1; j >= 0; j--) {
-            const candidateLine = lines[j].trim();
-            // The service line should be short and contain valid service terms
+            const candidateLine = cleanedLines[j].trim();
             if (candidateLine.length > 3 && !/^\d+/.test(candidateLine) && 
                 !candidateLine.toLowerCase().includes('días') && !candidateLine.toLowerCase().includes('dias') && 
                 !candidateLine.toLowerCase().includes('duración') && !candidateLine.toLowerCase().includes('observaciones') &&
@@ -1692,8 +1736,7 @@ function parsePrescriptionText(text) {
     // General fallback for Servicio if not found near doctor line (skipping header farmacia matches)
     if (!result.servicio) {
         const serviceKeywords = ['obstetricia', 'ginecología', 'ginecologia', 'neonatología', 'neonatologia', 'pediatría', 'pediatria', 'urgencias', 'consulta externa', 'quirófano', 'quirofano', 'farmacia', 'endocrinología', 'endocrinologia', 'adultos', 'reproducción', 'reproduccion', 'genética', 'genetica', 'infectología', 'infectologia', 'cardiología', 'cardiologia', 'neurología', 'neurologia'];
-        for (const line of lines) {
-            // Avoid coordination headers
+        for (const line of cleanedLines) {
             if (line.toLowerCase().includes('coordinación') || line.toLowerCase().includes('hospitalaria')) continue;
             for (const kw of serviceKeywords) {
                 if (line.toLowerCase().includes(kw)) {
@@ -1716,8 +1759,10 @@ function parsePrescriptionText(text) {
     let currentMed = null;
     const drugSubRoots = ['para', 'ibup', 'amox', 'clav', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ketop', 'esome', 'estrog', 'fonda'];
 
-    for (const line of lines) {
-        // Match clave with or without dots (e.g. 010.000.4158.01 or 010000415801)
+    for (let i = 0; i < rawLines.length; i++) {
+        const line = rawLines[i];
+        const cleanLine = cleanedLines[i];
+        
         const claveMatch = line.match(/\b(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})[-.\s]?(\d{2})\b/);
         const freqMatch = line.match(/\b(c\/24h|c\/12h|c\/8h|c\/6h|c\/48h|c\/72h|cada\s+\d+\s+horas|c\/\d+h)\b/i);
 
@@ -1725,23 +1770,22 @@ function parsePrescriptionText(text) {
         let matchedDrugName = '';
 
         for (const root of drugSubRoots) {
-            if (line.toLowerCase().includes(root)) {
+            if (cleanLine.toLowerCase().includes(root)) {
                 isDrugLine = true;
-                matchedDrugName = line;
+                matchedDrugName = cleanLine;
                 break;
             }
         }
 
-        if (!isDrugLine && /^[A-ZÁÉÍÓÚÑ][a-záéíóúñA-Z\s]{4,30}\s+\d+\s*(mg|g|ml|mcg|ui|tab)/i.test(line)) {
+        if (!isDrugLine && /^[A-ZÁÉÍÓÚÑ][a-záéíóúñA-Z\s]{4,30}\s+\d+\s*(mg|g|ml|mcg|ui|tab)/i.test(cleanLine)) {
             isDrugLine = true;
-            matchedDrugName = line;
+            matchedDrugName = cleanLine;
         }
 
         if (isDrugLine) {
             if (currentMed) {
                 result.medicamentos.push(currentMed);
             }
-            // Clean up the drug name to exclude Clave, Dosis, or Vía that might be captured on the same OCR line
             let cleanName = matchedDrugName.trim();
             // Remove clave if present (with or without dots/spaces/dashes)
             cleanName = cleanName.replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/g, '').trim();
@@ -1801,7 +1845,6 @@ function parsePrescriptionText(text) {
             // Extract string dosis (e.g. "22 UI")
             const dosisStrMatches = [...line.matchAll(/(\d+\s*(?:ui|mg|g|ml|mcg|tab|tableta|tabletas|cáp|cápsula|cápsulas|unidades?))/ig)];
             if (dosisStrMatches.length > 1) {
-                // Pick the second one as it's likely the dosage amount, not the concentration (like 100 UI)
                 currentMed.dosis = dosisStrMatches[1][0].toUpperCase();
             } else if (dosisStrMatches.length === 1) {
                 currentMed.dosis = dosisStrMatches[0][0].toUpperCase();

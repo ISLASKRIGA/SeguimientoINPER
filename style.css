@@ -1423,3 +1423,46 @@ select.ios-input {
         flex: 1.5 1 150px;
     }
 }
+
+/* Mobile Responsiveness Improvements */
+@media (max-width: 767px) {
+    /* Set display block for table components on mobile to ensure flex is clean */
+    .ios-table, .ios-table tbody, .ios-table td {
+        display: block;
+    }
+}
+
+@media (max-width: 576px) {
+    /* Padding reduction for main layout */
+    .main-content {
+        padding: 16px 12px;
+    }
+    
+    /* Make internal tabs wrap elegantly and reduce sizing */
+    .tab-btn {
+        padding: 12px 6px;
+        font-size: 11px;
+    }
+    
+    .e-nav-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    
+    /* Hide scrollbars for custom swiping menu in SFT interview */
+    .entrevista-nav {
+        -webkit-overflow-scrolling: touch;
+    }
+    .entrevista-nav::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+@media (max-width: 380px) {
+    /* Prevent bottom navigation text overlap on narrow screens */
+    .nav-item span {
+        font-size: 8px;
+        letter-spacing: -0.3px;
+    }
+}
+
