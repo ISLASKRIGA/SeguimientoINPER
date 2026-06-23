@@ -1498,6 +1498,44 @@ function showRecipeSelector(loader, parsed = null) {
     });
 }
 
+// OCR Cleaning and Normalization Helpers
+function cleanOcrText(str) {
+    if (!str) return '';
+    return str
+        .replace(/\b1\b/g, 'I')
+        .replace(/([A-Z])1([A-Z])/g, '$1I$2')
+        .replace(/([A-Z])0([A-Z])/g, '$1O$2')
+        .replace(/([A-Z])4([A-Z])/g, '$1A$2')
+        .replace(/([A-Z])3([A-Z])/g, '$1E$2')
+        .replace(/([A-Z])5([A-Z])/g, '$1S$2')
+        .trim();
+}
+
+function normalizeDrugName(name) {
+    if (!name) return '';
+    const l = name.toLowerCase();
+    if (l.includes('parac') || l.includes('cetam')) return "PARACETAMOL 500 MG TABLETA";
+    if (l.includes('ibup') || l.includes('buprof')) return "IBUPROFENO TABLETA O CÁPSULA 400 MG";
+    if (l.includes('amox') || l.includes('clav')) return "AMOXICILINA / ÁCIDO CLAVULÁNICO 875 MG / 125 MG";
+    if (l.includes('losar')) return "LOSARTÁN 50 MG GRAGEA O COMPRIMIDO RECUBIERTO";
+    if (l.includes('preg')) return "PREGABALINA 75 MG CÁPSULA";
+    if (l.includes('sitag')) return "SITAGLIPTINA METFORMINA COMPRIMIDO 50 MG";
+    if (l.includes('dapag')) return "DAPAGLIFLOZINA 10MG TAB";
+    if (l.includes('cefal')) return "CEFALEXINA 500 MG TABLETA";
+    if (l.includes('ondas')) return "ONDASETRON 8 MG TABLETA";
+    if (l.includes('ketop')) return "KETOPROFENO 100 MG TABLETA";
+    if (l.includes('esome')) return "ESOMEPRAZOL 40 MG TABLETA";
+    if (l.includes('estrog')) return "ESTRÓGENOS CONJUGADOS CREMA VAGINAL";
+    if (l.includes('fonda')) return "FONDAPARINUX SÓDICO 2.5 MG";
+    if (l.includes('glarg') || l.includes('insul')) {
+        if (l.includes('100') || l.includes('solución') || l.includes('inyect')) {
+            return "INSULINA GLARGINA 100 UI SOLUCIÓN INYECTABLE";
+        }
+        return "INSULINA GLARGINA ENVASE CON UN FRASCO ÁMPULA CON 10 ML";
+    }
+    return name.toUpperCase();
+}
+
 // Regex-based OCR parser
 function parsePrescriptionText(text) {
     const result = {
@@ -1581,22 +1619,22 @@ function parsePrescriptionText(text) {
         }
     }
 
-    // Folio (R-XXXXX or 2026-XXXXXXXX)
-    const folioRegex = /(?:folio|receta|no\.?\s*receta|no\.?\s*folio)[:\s]+([A-Z0-9-]{5,20})|([A-Z0-9]{3,4}-\d{5,10})|\b(\d{4}-\d{8})\b/i;
+    // Folio (R-XXXXX or 2026-XXXXXXXX, or 7-digit starting with 30)
+    const folioRegex = /(?:folio|receta|no\.?\s*receta|no\.?\s*folio)[:\s]+([A-Z0-9-]{5,20})|([A-Z0-9]{3,4}-\d{5,10})|\b(\d{4}-\d{8})\b|\b(30\d{5})\b/i;
     for (const line of lines) {
         const match = line.match(folioRegex);
         if (match) {
-            result.folio = (match[1] || match[2] || match[3]).trim();
+            result.folio = (match[1] || match[2] || match[3] || match[4]).trim();
             break;
         }
     }
 
-    // Expediente (9 digits typically, or INP-XXXX)
-    const expRegex = /(?:expediente|exp\.?|no\.?\s*exp)[:\s]+([A-Z0-9-]{5,15})|\b(\d{9})\b/i;
+    // Expediente (9 digits typically, with optional spaces, or INP-XXXX)
+    const expRegex = /(?:expediente|exp\.?|no\.?\s*exp)[:\s]+([A-Z0-9-]{5,15})|\b(\d{3}\s*\d{3}\s*\d{3})\b/i;
     for (const line of lines) {
         const match = line.match(expRegex);
         if (match) {
-            result.expediente = (match[1] || match[2]).trim();
+            result.expediente = (match[1] || match[2]).replace(/\s+/g, '').trim();
             break;
         }
     }
@@ -1609,15 +1647,15 @@ function parsePrescriptionText(text) {
             let pName = match[1].trim().toUpperCase();
             // Remove noise suffixes like " _", " -", " /" or single characters at the end
             pName = pName.replace(/\s+[^A-Z0-9\s]$/g, '').trim();
-            result.paciente = pName;
+            result.paciente = cleanOcrText(pName);
             break;
         }
     }
     if (!result.paciente) {
         for (const line of lines) {
-            if (/^[A-ZÁÉÍÓÚÑ\s]{10,45}$/.test(line)) {
+            if (/^[A-Z0-9ÁÉÍÓÚÑ\s]{10,45}$/.test(line)) {
                 if (!line.includes('DR.') && !line.includes('DRA.') && !line.includes('MEDICO') && !line.includes('INSTITUTO') && !line.includes('SERVICIO')) {
-                    result.paciente = line.trim().toUpperCase();
+                    result.paciente = cleanOcrText(line.trim().toUpperCase());
                     break;
                 }
             }
@@ -1630,7 +1668,7 @@ function parsePrescriptionText(text) {
     for (let i = 0; i < lines.length; i++) {
         const match = lines[i].match(docRegex);
         if (match) {
-            result.medico = (match[1] || match[2] || match[3]).trim().toUpperCase();
+            result.medico = cleanOcrText((match[1] || match[2] || match[3]).trim().toUpperCase());
             docLineIdx = i;
             break;
         }
@@ -1676,7 +1714,7 @@ function parsePrescriptionText(text) {
 
     // Medications
     let currentMed = null;
-    const drugKeywords = ['ácido', 'cefalexina', 'ondasetron', 'ketoprofeno', 'paracetamol', 'esomeprazol', 'estrógenos', 'crema', 'vaginal', 'insulina', 'metformina', 'losartán', 'amoxicilina', 'ibuprofeno', 'glargina'];
+    const drugSubRoots = ['para', 'ibup', 'amox', 'clav', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ketop', 'esome', 'estrog', 'fonda'];
 
     for (const line of lines) {
         // Match clave with or without dots (e.g. 010.000.4158.01 or 010000415801)
@@ -1686,8 +1724,8 @@ function parsePrescriptionText(text) {
         let isDrugLine = false;
         let matchedDrugName = '';
 
-        for (const kw of drugKeywords) {
-            if (line.toLowerCase().includes(kw)) {
+        for (const root of drugSubRoots) {
+            if (line.toLowerCase().includes(root)) {
                 isDrugLine = true;
                 matchedDrugName = line;
                 break;
@@ -1714,8 +1752,10 @@ function parsePrescriptionText(text) {
             // Clean double spaces
             cleanName = cleanName.replace(/\s+/g, ' ').trim();
 
+            const finalName = normalizeDrugName(cleanName || matchedDrugName);
+
             currentMed = {
-                nombre: cleanName || matchedDrugName.trim(),
+                nombre: finalName,
                 clave: '',
                 lote: '',
                 caducidad: '',
