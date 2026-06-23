@@ -1431,17 +1431,6 @@ function mergeMockOcrDataIfNeeded(parsed, filename, rawText = '', fileSize = 0) 
                 ]
             };
         }
-        // Default to Rosalba 1
-        return {
-            folio: "2026-03047130",
-            expediente: "332219010",
-            paciente: "ROSALBA FLORES CHAVIRA",
-            medico: "JORGE ALBERTO RAMIREZ GARCIA",
-            servicio: "ENDOCRINOLOGIA ADULTOS",
-            medicamentos: [
-                { nombre: "INSULINA GLARGINA 100 UI SOLUCIÓN INYECTABLE", clave: "010.000.4158.01", lote: "1224120512", caducidad: "NOV-27", estatus: "EPI", dosis: "22 UI", frecuencia: "24h", duracion: "90 días", cantidad: "1 caja" }
-            ]
-        };
     }
 
     // Default Fallback

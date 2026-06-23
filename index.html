@@ -3,14 +3,38 @@
 
 <head>
     <script>
-        // Force reload to clear browser cache when app is updated
-        const APP_VERSION = '20260623_1234';
+        // Force reload and clear cache when app is updated
+        const APP_VERSION = '20260623_1248';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
             localStorage.setItem('app_version', APP_VERSION);
+            
+            // Clear cache storage if supported
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    for (let name of names) caches.delete(name);
+                });
+            }
+            
+            // Unregister service workers
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    for (let registration of registrations) {
+                        registration.unregister();
+                    }
+                });
+            }
+            
+            // Clear recipes cache to avoid old state confusion
+            localStorage.removeItem('recetas_cache');
+            
+            // Force reload from server
             window.location.reload(true);
         }
     </script>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,7 +47,7 @@
     <!-- Phosphor Icons (Bold for chunkier, playful look) -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260623_1248">
     <!-- Favicon: Red Medical Cross with rounded corners -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2225%22 fill=%22%23ffffff%22/><rect x=%2240%22 y=%2220%22 width=%2220%22 height=%2260%22 rx=%225%22 fill=%22%23ff4b4b%22/><rect x=%2220%22 y=%2240%22 width=%2260%22 height=%2220%22 rx=%225%22 fill=%22%23ff4b4b%22/></svg>">
 </head>
@@ -900,7 +924,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Tesseract.js for real OCR -->
     <script src="https://unpkg.com/tesseract.js@5.0.3/dist/tesseract.min.js"></script>
-    <script src="app.js?v=20260623_1229"></script>
+    <script src="app.js?v=20260623_1248"></script>
     <script>
         // Little script to handle the tab toggle in SFT View, since it was not in the original app.js
         document.addEventListener('DOMContentLoaded', () => {
