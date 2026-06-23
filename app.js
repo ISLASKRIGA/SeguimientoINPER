@@ -1245,7 +1245,7 @@ function useMockOcrData(loader, filename) {
             expediente: "332219010",
             paciente: "ROSALBA FLORES CHAVIRA",
             medico: "JORGE ALBERTO RAMIREZ GARCIA",
-            servicio: "SUBDIRECCION DE GINECOLOGIA Y OBSTETRICIA",
+            servicio: "ENDOCRINOLOGIA ADULTOS",
             medicamentos: [
                 { nombre: "INSULINA GLARGINA 100 UI SOLUCIÓN INYECTABLE", clave: "010.000.4158.01", lote: "1224120512", caducidad: "NOV-27", estatus: "EPI", dosis: 22, frecuencia: "24h", cantidad: 1 }
             ]
@@ -1380,17 +1380,19 @@ function parsePrescriptionText(text) {
     }
 
     // Doctor (supporting médico/a or medico/a and lookahead)
+    let docLineIdx = -1;
     const docRegex = /(?:médico\/a|medico\/a|médico|medico|doctor|dr\.?|dra\.?|médico\s+tratante)[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s\.\-]+?)(?=\s*(?:Cédula|Cedula|Firma|\/|\b\d|\n|$))/i;
-    for (const line of lines) {
-        const match = line.match(docRegex);
+    for (let i = 0; i < lines.length; i++) {
+        const match = lines[i].match(docRegex);
         if (match) {
             result.medico = (match[1] || match[2] || match[3]).trim().toUpperCase();
+            docLineIdx = i;
             break;
         }
     }
 
     // Servicio
-    const serviceKeywords = ['obstetricia', 'ginecología', 'neonatología', 'pediatría', 'urgencias', 'consulta externa', 'quirófano', 'farmacia'];
+    const serviceKeywords = ['obstetricia', 'ginecología', 'ginecologia', 'neonatología', 'neonatologia', 'pediatría', 'pediatria', 'urgencias', 'consulta externa', 'quirófano', 'quirofano', 'farmacia', 'endocrinología', 'endocrinologia', 'adultos', 'reproducción', 'reproduccion', 'genética', 'genetica', 'infectología', 'infectologia', 'cardiología', 'cardiologia', 'neurología', 'neurologia'];
     for (const line of lines) {
         for (const kw of serviceKeywords) {
             if (line.toLowerCase().includes(kw)) {
@@ -1399,6 +1401,14 @@ function parsePrescriptionText(text) {
             }
         }
         if (result.servicio) break;
+    }
+
+    // Fallback for Servicio: check the line right before the Doctor's line
+    if (!result.servicio && docLineIdx > 0) {
+        const candidateLine = lines[docLineIdx - 1].trim();
+        if (candidateLine.length > 3 && !/^\d+/.test(candidateLine) && !candidateLine.toLowerCase().includes('días') && !candidateLine.toLowerCase().includes('dias') && !candidateLine.toLowerCase().includes('duración') && !candidateLine.toLowerCase().includes('observaciones')) {
+            result.servicio = candidateLine.toUpperCase();
+        }
     }
 
     // Exclude list for Lote search
