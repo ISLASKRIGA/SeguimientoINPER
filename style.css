@@ -175,6 +175,20 @@ body {
     margin-top: 4px;
 }
 
+/* KPI Grid */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+@media (min-width: 576px) {
+    .kpi-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
 /* Stats Cards (Duolingo Style grid) */
 .stats-grid {
     display: grid;
@@ -1089,7 +1103,13 @@ select.ios-input {
 }
 
 .nav-item i { font-size: 26px; transition: 0.2s; }
-.nav-item span { font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.nav-item span {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    white-space: nowrap;
+    letter-spacing: -0.2px;
+}
 
 .nav-item.active { color: var(--blue); }
 .nav-item.active i { transform: translateY(-3px) scale(1.1); }
