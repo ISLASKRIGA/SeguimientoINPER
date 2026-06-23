@@ -7,6 +7,7 @@ CREATE TABLE recetas (
     expediente TEXT NOT NULL,
     paciente TEXT,
     medico TEXT,
+    servicio TEXT,
     estado TEXT DEFAULT 'Pendiente',
     fecha TIMESTAMPTZ DEFAULT NOW(),
     medicamentos JSONB NOT NULL,
@@ -27,3 +28,8 @@ CREATE POLICY "Allow public insert on recetas" ON recetas
 
 CREATE POLICY "Allow public update on recetas" ON recetas
     FOR UPDATE USING (true);
+
+-- 4. Migration for existing tables:
+-- If your 'recetas' table already exists, run this in the Supabase SQL Editor:
+-- ALTER TABLE recetas ADD COLUMN IF NOT EXISTS servicio TEXT;
+

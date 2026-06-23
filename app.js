@@ -22,6 +22,7 @@ async function fetchRecetas() {
             expediente: r.expediente,
             paciente: r.paciente,
             medico: r.medico,
+            servicio: r.servicio,
             estado: r.estado,
             fecha: r.fecha,
             medicamentos: r.medicamentos,
@@ -178,6 +179,7 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
     const exp = document.getElementById('expediente').value.trim().toUpperCase();
     const paciente = document.getElementById('paciente').value.trim();
     const medico = document.getElementById('medico').value.trim();
+    const servicio = document.getElementById('servicio').value.trim();
 
     // --- ANTI-DUPLICADOS: verificar folio único ---
     const folioExistente = db.recetas.find(r => r.folio.trim().toUpperCase() === folio.toUpperCase());
@@ -298,6 +300,7 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
         expediente: exp,
         paciente: paciente,
         medico: medico,
+        servicio: servicio,
         estado: "Pendiente",
         medicamentos: medicamentosObj,
         tiene_alerta: hasYellowAlert,
@@ -326,6 +329,7 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
             expediente: newRecord.expediente,
             paciente: newRecord.paciente,
             medico: newRecord.medico,
+            servicio: newRecord.servicio,
             estado: newRecord.estado,
             fecha: new Date().toISOString(),
             medicamentos: newRecord.medicamentos,
@@ -390,6 +394,7 @@ function openSurtimientoModal(id) {
         <div class="info-row"><span class="info-label">Expediente:</span> <span class="info-val">${r.expediente}</span></div>
         <div class="info-row"><span class="info-label">Folio:</span> <span class="info-val">${r.folio}</span></div>
         <div class="info-row"><span class="info-label">Paciente:</span> <span class="info-val">${r.paciente}</span></div>
+        ${r.servicio ? `<div class="info-row"><span class="info-label">Servicio:</span> <span class="info-val">${r.servicio}</span></div>` : ''}
         <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border);">
         <h4 style="margin-bottom:10px;">Prescripción a entregar:</h4>
         <ul style="padding-left:15px; color:var(--primary); font-weight:500;">
@@ -415,6 +420,7 @@ function openDetalleModal(id) {
         <div class="info-row"><span class="info-label">Expediente:</span> <span class="info-val">${r.expediente}</span></div>
         <div class="info-row"><span class="info-label">Paciente:</span> <span class="info-val">${r.paciente}</span></div>
         <div class="info-row"><span class="info-label">Médico:</span> <span class="info-val">${r.medico}</span></div>
+        ${r.servicio ? `<div class="info-row"><span class="info-label">Servicio:</span> <span class="info-val">${r.servicio}</span></div>` : ''}
         <div class="info-row"><span class="info-label">Fecha:</span> <span class="info-val">${fecha}</span></div>
         <div class="info-row"><span class="info-label">Estado:</span> <span class="info-val" style="color:${estadoColor}; font-weight:800;">${r.estado}</span></div>
         <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border);">
@@ -753,7 +759,7 @@ window.loadPatientSFT = function() {
         // Basic Profile Info
         document.getElementById('sft-paciente-nombre').innerText = latestRecipe.paciente || 'Paciente';
         document.getElementById('sft-paciente-exp').innerText = term;
-        document.getElementById('sft-paciente-servicio').innerText = "Consulta Externa"; // Default since DB doesn't store service
+        document.getElementById('sft-paciente-servicio').innerText = latestRecipe.servicio || "Consulta Externa";
         
         // Show/hide allergy alert if there's any alerts in the patient history
         const hasAllergyAlert = sortedRecipes.some(r => r.tieneAlerta && r.alertaMsg && r.alertaMsg.toLowerCase().includes('alergia'));
