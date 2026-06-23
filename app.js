@@ -1239,7 +1239,18 @@ function useMockOcrData(loader, filename) {
     const fn = filename.toLowerCase();
     let mockData = null;
 
-    if (fn.includes('elvira') || fn.includes('138403010') || fn.includes('receta')) {
+    if (fn.includes('rosalba') || fn.includes('332219010') || fn.includes('focr821107')) {
+        mockData = {
+            folio: "2026-03047130",
+            expediente: "332219010",
+            paciente: "ROSALBA FLORES CHAVIRA",
+            medico: "JORGE ALBERTO RAMIREZ GARCIA",
+            servicio: "SUBDIRECCION DE GINECOLOGIA Y OBSTETRICIA",
+            medicamentos: [
+                { nombre: "INSULINA GLARGINA 100 UI SOLUCIÓN INYECTABLE", clave: "010.000.4158.01", lote: "1224120512", caducidad: "NOV-27", estatus: "EPI", dosis: 22, frecuencia: "24h", cantidad: 1 }
+            ]
+        };
+    } else if (fn.includes('elvira') || fn.includes('138403010') || fn.includes('receta')) {
         mockData = {
             folio: "2026-00438910",
             expediente: "138403010",
@@ -1282,6 +1293,50 @@ function parsePrescriptionText(text) {
         medicamentos: []
     };
 
+    // Helper to extract caducidad
+    function extractCaducidad(str) {
+        const explicit = str.match(/(?:caducidad|cad|vencimiento)[:\s]+([A-Z0-9/-]{3,10})/i);
+        if (explicit) return explicit[1].toUpperCase();
+
+        const months = "ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC";
+        const pattern1 = new RegExp(`\\b(${months})[-/\\s]*(\\d{2,4})\\b`, 'i');
+        const match1 = str.match(pattern1);
+        if (match1) return `${match1[1]}-${match1[2]}`.toUpperCase();
+
+        const pattern2 = /\b(0[1-9]|1[0-2])[-/](\d{2,4})\b/;
+        const match2 = str.match(pattern2);
+        if (match2) return `${match2[1]}/${match2[2]}`;
+
+        const pattern3 = /\b(\d{2})[-/](\d{2})[-/](\d{2,4})\b/;
+        const match3 = str.match(pattern3);
+        if (match3) return `${match3[1]}/${match3[2]}/${match3[3]}`;
+
+        return null;
+    }
+
+    // Helper to extract lote
+    function extractLote(str, excludeList = []) {
+        const explicit = str.match(/(?:lote|lot)[:\s]+([A-Z0-9]+)/i);
+        if (explicit) return explicit[1].toUpperCase();
+
+        const words = str.split(/[\s,|/]+/).map(w => w.trim()).filter(w => w.length >= 5);
+        for (const word of words) {
+            if (excludeList.some(ex => ex.toLowerCase().includes(word.toLowerCase()) || word.toLowerCase().includes(ex.toLowerCase()))) {
+                continue;
+            }
+            if (word.includes('.')) continue;
+            if (/^[A-Z]{4}\d{6}[A-Z]{6}\d{2}$/i.test(word)) continue; // CURP
+
+            if (/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,12}$/.test(word)) {
+                return word.toUpperCase();
+            }
+            if (/^\d{8,12}$/.test(word)) {
+                return word;
+            }
+        }
+        return null;
+    }
+
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
     // Folio (R-XXXXX or 2026-XXXXXXXX)
@@ -1304,8 +1359,8 @@ function parsePrescriptionText(text) {
         }
     }
 
-    // Paciente Name
-    const nameRegex = /(?:paciente|nombre|nombre\s+del\s+paciente|paciente\s+:\s*|nombre\s+:\s*)([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/i;
+    // Paciente Name (using the improved pattern with lookahead)
+    const nameRegex = /(?:paciente|nombre\s+del\s+paciente|nombre)[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?=\s*(?:CURP|EDAD|FECHA|\/|\b\d|\n|$))/i;
     for (const line of lines) {
         const match = line.match(nameRegex);
         if (match && !match[1].toLowerCase().includes('médico') && !match[1].toLowerCase().includes('dr')) {
@@ -1324,8 +1379,8 @@ function parsePrescriptionText(text) {
         }
     }
 
-    // Doctor
-    const docRegex = /(?:médico|doctor|dr\.?|dra\.?|médico\s+tratante)[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s\.]+)|(DR\.\s+[A-ZÁÉÍÓÚÑ\s]{5,40})|(DRA\.\s+[A-ZÁÉÍÓÚÑ\s]{5,40})/i;
+    // Doctor (supporting médico/a or medico/a and lookahead)
+    const docRegex = /(?:médico\/a|medico\/a|médico|medico|doctor|dr\.?|dra\.?|médico\s+tratante)[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s\.\-]+?)(?=\s*(?:Cédula|Cedula|Firma|\/|\b\d|\n|$))/i;
     for (const line of lines) {
         const match = line.match(docRegex);
         if (match) {
@@ -1346,14 +1401,19 @@ function parsePrescriptionText(text) {
         if (result.servicio) break;
     }
 
+    // Exclude list for Lote search
+    const excludeList = ['paciente', 'medico', 'servicio', 'expediente', 'folio', 'clave', 'medicamento', 'dosis', 'via', 'intervalo', 'duracion', 'observaciones', 'receta', 'cedula', 'profesional', 'firma', 'instituto', 'espinosa'];
+    if (result.paciente) excludeList.push(...result.paciente.split(/\s+/));
+    if (result.medico) excludeList.push(...result.medico.split(/\s+/));
+    if (result.folio) excludeList.push(result.folio);
+    if (result.expediente) excludeList.push(result.expediente);
+
     // Medications
     let currentMed = null;
-    const drugKeywords = ['ácido', 'cefalexina', 'ondasetron', 'ketoprofeno', 'paracetamol', 'esomeprazol', 'estrógenos', 'crema', 'vaginal', 'insulina', 'metformina', 'losartán', 'amoxicilina', 'ibuprofeno'];
+    const drugKeywords = ['ácido', 'cefalexina', 'ondasetron', 'ketoprofeno', 'paracetamol', 'esomeprazol', 'estrógenos', 'crema', 'vaginal', 'insulina', 'metformina', 'losartán', 'amoxicilina', 'ibuprofeno', 'glargina'];
 
     for (const line of lines) {
         const claveMatch = line.match(/\b(\d{3}\.\d{3}\.\d{4}\.\d{2})\b/);
-        const loteMatch = line.match(/(?:lote|lot)[:\s]+([A-Z0-9]+)/i);
-        const cadMatch = line.match(/(?:caducidad|cad|vencimiento)[:\s]+([A-Z0-9/-]{3,10})/i);
         const freqMatch = line.match(/\b(c\/24h|c\/12h|c\/8h|c\/6h|c\/48h|c\/72h|cada\s+\d+\s+horas|c\/\d+h)\b/i);
 
         let isDrugLine = false;
@@ -1390,8 +1450,22 @@ function parsePrescriptionText(text) {
 
         if (currentMed) {
             if (claveMatch) currentMed.clave = claveMatch[1];
-            if (loteMatch) currentMed.lote = loteMatch[1];
-            if (cadMatch) currentMed.caducidad = cadMatch[1];
+            
+            if (!currentMed.caducidad) {
+                const cad = extractCaducidad(line);
+                if (cad) currentMed.caducidad = cad;
+            }
+            if (!currentMed.lote) {
+                const lote = extractLote(line, excludeList);
+                if (lote) currentMed.lote = lote;
+            }
+
+            if (line.includes('EPI')) currentMed.estatus = 'EPI';
+            else if (line.includes('AEM')) currentMed.estatus = 'AEM';
+            else if (line.includes('AIC')) currentMed.estatus = 'AIC';
+            else if (line.includes('AT')) currentMed.estatus = 'AT';
+            else if (line.includes('IES')) currentMed.estatus = 'IES';
+
             if (freqMatch) {
                 let freqVal = freqMatch[1].toLowerCase().replace(' ', '');
                 if (freqVal.includes('cada')) {
@@ -1403,7 +1477,7 @@ function parsePrescriptionText(text) {
                 }
             }
 
-            const dosisMatch = line.match(/(?:dosis|tomar)[:\s]+(\d+)|(\d+)\s*(?:tableta|unidad|cucharada|dosis|cáp)/i);
+            const dosisMatch = line.match(/(?:dosis|tomar)[:\s]+(\d+)|(\d+)\s*(?:tableta|unidad|cucharada|dosis|cáp|ui)/i);
             if (dosisMatch) {
                 currentMed.dosis = parseInt(dosisMatch[1] || dosisMatch[2]) || 1;
             }
