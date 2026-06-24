@@ -220,8 +220,9 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
             'AEM': 'AEM - Existencia en casa',
             'AIC': 'AIC - Existencia en clínica',
             'EPI': 'EPI - Entrega parcial de insumo',
-            'AT': 'AT - Acumulado',
-            'IES': 'IES - Incumplimiento en entrega de insumo'
+            'AT': 'AT - Alternativa terapéutica',
+            'IES': 'IES - Incumplimiento en entrega de insumo',
+            'C': 'C - Completo'
         };
         const estatusText = estatusMap[estatus] || estatus;
 
@@ -701,7 +702,10 @@ function compactOcrDigits(value) {
 }
 
 function normalizeClave(value) {
-    const digits = compactOcrDigits(value);
+    const raw = String(value || '');
+    const candidate = raw.match(/\b0?1[O0][.\s-]*[0-9OIL|S]{3}[.\s-]*[0-9OIL|S]{4}[.\s-]*[0-9OIL|S]{2}\b/i)?.[0];
+    if (!candidate) return '';
+    const digits = compactOcrDigits(candidate);
     if (digits.length < 10) return '';
     const normalized = digits.startsWith('10') && !digits.startsWith('010') ? '0' + digits : digits;
     const twelve = normalized.slice(0, 12);
@@ -721,6 +725,36 @@ async function recognizeRegionText(dataUrl, region, label, options = {}) {
         }
     );
     return response?.data?.text || '';
+}
+
+async function recognizePrescriptionRegions(dataUrl, stepText) {
+    if (stepText) stepText.innerText = 'Leyendo zonas clave del formato INPer...';
+    const regions = [
+        { label: 'top-right-expediente', region: { x: 0.62, y: 0.135, w: 0.34, h: 0.125 }, psm: '6', scale: 3.2 },
+        { label: 'patient-header', region: { x: 0.04, y: 0.215, w: 0.92, h: 0.085 }, psm: '6', scale: 2.8 },
+        { label: 'table-full', region: { x: 0.045, y: 0.285, w: 0.91, h: 0.28 }, psm: '6', scale: 2.5 },
+        { label: 'table-medicamento-column', region: { x: 0.10, y: 0.285, w: 0.24, h: 0.28 }, psm: '6', scale: 3.0 },
+        { label: 'service-doctor-band', region: { x: 0.04, y: 0.50, w: 0.76, h: 0.105 }, psm: '6', scale: 2.8 }
+    ];
+    const output = [];
+
+    for (const item of regions) {
+        try {
+            const text = await recognizeRegionText(dataUrl, item.region, item.label, {
+                psm: item.psm,
+                scale: item.scale,
+                threshold: 168
+            });
+            if (text && text.trim()) {
+                output.push('REGION ' + item.label);
+                output.push(text.trim());
+            }
+        } catch (err) {
+            console.warn('Regional OCR failed:', item.label, err);
+        }
+    }
+
+    return output.join('\n');
 }
 
 function scoreParsedPrescription(parsed, text = '') {
@@ -1005,8 +1039,9 @@ window.loadPatientSFT = function() {
                     'AEM': 'AEM - Existencia en casa',
                     'AIC': 'AIC - Existencia en clínica',
                     'EPI': 'EPI - Entrega parcial de insumo',
-                    'AT': 'AT - Acumulado',
-                    'IES': 'IES - Incumplimiento en entrega de insumo'
+                    'AT': 'AT - Alternativa terapéutica',
+                    'IES': 'IES - Incumplimiento en entrega de insumo',
+                    'C': 'C - Completo'
                 };
                 const estatusText = estatusMap[m.estatus] || m.estatus;
                 notas += ` • Estatus: ${estatusText}`;
@@ -1751,6 +1786,113 @@ function cleanPersonName(value) {
         .toUpperCase();
 }
 
+const FIXED_FORMAT_MED_CATALOG = [
+    { key: 'metformina', aliases: ['metformina', 'metformin'], nombre: 'METFORMINA 850 MG TABLETA', clave: '010.000.5165.00', dosis: '850 MG', frecuencia: '8h', duracion: '90 dias' },
+    { key: 'dapagliflozina', aliases: ['dapagliflozina', 'dapaglif'], nombre: 'DAPAGLIFLOZINA 10MG TAB', clave: '010.000.6007.01', dosis: '10 MG', frecuencia: '24h', duracion: '90 dias' },
+    { key: 'insulina_glargina', aliases: ['insulina glargina', 'glargina'], nombre: 'INSULINA GLARGINA ENVASE CON UN FRASCO AMPULA CON 10 ML', clave: '010.000.4158.00', dosis: '', frecuencia: '24h', duracion: '90 dias' },
+    { key: 'losartan', aliases: ['losartan'], nombre: 'LOSARTAN 50 MG GRAGEA O COMPRIMIDO RECUBIERTO', clave: '010.000.2520.00', dosis: '50 MG', frecuencia: '24h', duracion: '90 dias' },
+    { key: 'pregabalina', aliases: ['pregabalina'], nombre: 'PREGABALINA 75 MG CAPSULA', clave: '010.000.4356.01', dosis: '75 MG', frecuencia: '24h', duracion: '90 dias' },
+    { key: 'levotiroxina', aliases: ['levotiroxina', 'levotirox'], nombre: 'LEVOTIROXINA 100 MCG TABLETA', clave: '010.000.1007.00', dosis: '100 MCG', frecuencia: '24h', duracion: '90 dias' },
+    { key: 'paracetamol', aliases: ['paracetamol'], nombre: 'PARACETAMOL 500 MG TABLETA', clave: '010.000.0104.00', dosis: '500 MG', frecuencia: '8h', duracion: '5 dias' },
+    { key: 'ibuprofeno', aliases: ['ibuprofeno', 'ibuprofen'], nombre: 'IBUPROFENO TABLETA O CAPSULA 400 MG', clave: '010.000.5941.03', dosis: '400 MG', frecuencia: '8h', duracion: '3 dias' },
+    { key: 'fondaparinux', aliases: ['fondaparinux'], nombre: 'FONDAPARINUX SODICO 2.5 MG ENVASE CON 2 JERINGAS PRELLENADAS', clave: '010.000.4220.00', dosis: '2.5 MG', frecuencia: '24h', duracion: '10 dias' },
+    { key: 'amoxicilina_clavulanico', aliases: ['amoxicilina acido clavulanico', 'amoxicilina clavulanico', 'clavulanato de potasio', 'clavulanico'], nombre: 'AMOXICILINA / ACIDO CLAVULANICO 875 MG / 125 MG', clave: '010.000.6281.00', dosis: '1 TABLETA', frecuencia: '12h', duracion: '7 dias' },
+    { key: 'sitagliptina_metformina', aliases: ['sitagliptina metformina', 'sitagliptina', 'fosfato de sitagliptina'], nombre: 'SITAGLIPTINA METFORMINA COMPRIMIDO 50 MG', clave: '010.000.5705.00', dosis: '1 COMPRIMIDO', frecuencia: '12h', duracion: '90 dias' }
+];
+
+function simplifyOcrText(value) {
+    return (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9.\s/]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function catalogEntryForClave(clave) {
+    const normalized = normalizeClave(clave);
+    if (!normalized) return null;
+    return FIXED_FORMAT_MED_CATALOG.find(item => item.clave === normalized || item.clave.replace(/\.\d{2}$/, '') === normalized.replace(/\.\d{2}$/, '')) || null;
+}
+
+function inferDoseNearText(source, aliasIndex, fallback = '', preferLastUi = false) {
+    const windowText = source.slice(aliasIndex, aliasIndex + 240);
+    if (preferLastUi) {
+        const uiDoses = [...windowText.matchAll(/\b(\d+(?:\.\d+)?)\s*ui\b/ig)];
+        if (uiDoses.length) return (uiDoses[uiDoses.length - 1][1] + ' UI').toUpperCase();
+    }
+    const dose = windowText.match(/\b(\d+(?:\.\d+)?\s*(?:ui|ug|mcg|mg|g|ml)|1\s*tableta|1\s*comprimido)\b/i);
+    return dose ? dose[1].toUpperCase().replace('UG', 'MCG') : fallback;
+}
+
+function inferFrequencyNearText(source, aliasIndex, fallback = '24h') {
+    const windowText = source.slice(aliasIndex, aliasIndex + 280);
+    const cada = windowText.match(/cada\s+(\d+)\s*horas/i) || windowText.match(/c\/(\d+)h/i);
+    return cada ? cada[1] + 'h' : fallback;
+}
+
+function inferDurationNearText(source, aliasIndex, fallback = '') {
+    const windowText = source.slice(aliasIndex, aliasIndex + 280);
+    const duration = windowText.match(/\b(\d+\s*(?:dias|dia))\b/i);
+    return duration ? duration[1] : fallback;
+}
+
+function inferFixedFormatMedicines(text) {
+    const source = simplifyOcrText(text);
+    const inferred = [];
+    const seen = new Set();
+    for (const item of FIXED_FORMAT_MED_CATALOG) {
+        const foundIndexes = item.aliases.map(alias => source.indexOf(simplifyOcrText(alias))).filter(idx => idx >= 0);
+        if (foundIndexes.length === 0 || seen.has(item.key)) continue;
+        const aliasIndex = Math.min(...foundIndexes);
+        seen.add(item.key);
+        inferred.push({ key: item.key, order: aliasIndex, nombre: item.nombre, clave: item.clave, lote: '', caducidad: '', estatus: 'AIC', dosis: inferDoseNearText(source, aliasIndex, item.dosis, item.key === 'insulina_glargina'), frecuencia: inferFrequencyNearText(source, aliasIndex, item.frecuencia), duracion: inferDurationNearText(source, aliasIndex, item.duracion), cantidad: '1' });
+    }
+    const claveMatches = [...text.matchAll(/\b(?:010|10)[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/g)];
+    for (const match of claveMatches) {
+        const clave = normalizeClave(match[0]);
+        const item = catalogEntryForClave(clave);
+        if (!item || seen.has(item.key)) continue;
+        seen.add(item.key);
+        inferred.push({ key: item.key, order: match.index, nombre: item.nombre, clave, lote: '', caducidad: '', estatus: 'AIC', dosis: item.dosis, frecuencia: item.frecuencia, duracion: item.duracion, cantidad: '1' });
+    }
+    return inferred.sort((a, b) => a.order - b.order).map(({ order, key, ...med }) => med);
+}
+
+function mergeFixedFormatMedicines(result, text) {
+    const inferred = inferFixedFormatMedicines(text);
+    if (inferred.length === 0) return;
+
+    const inferredKeys = new Set(inferred.map(med => catalogEntryForClave(med.clave)?.key).filter(Boolean));
+    const existingByKey = new Map();
+    const catalogKeyFromName = (name) => {
+        const normalizedName = simplifyOcrText(name);
+        const hit = FIXED_FORMAT_MED_CATALOG.find(item => item.aliases.some(alias => normalizedName.includes(simplifyOcrText(alias))));
+        return hit?.key || '';
+    };
+
+    result.medicamentos.forEach(med => {
+        const claveKey = catalogEntryForClave(med.clave)?.key || '';
+        const nameKey = catalogKeyFromName(med.nombre);
+        if (claveKey && nameKey && claveKey !== nameKey) return;
+        const key = nameKey || claveKey;
+        if (key && !existingByKey.has(key)) existingByKey.set(key, med);
+    });
+
+    const merged = inferred.map(med => {
+        const key = catalogEntryForClave(med.clave)?.key || catalogKeyFromName(med.nombre);
+        const existing = existingByKey.get(key);
+        return {
+            ...med,
+            lote: existing?.lote || med.lote,
+            caducidad: existing?.caducidad || med.caducidad,
+            estatus: existing?.estatus || med.estatus,
+            cantidad: existing?.cantidad && existing.cantidad !== '1' ? existing.cantidad : med.cantidad
+        };
+    });
+
+    const extras = result.medicamentos.filter(med => {
+        const key = catalogEntryForClave(med.clave)?.key || catalogKeyFromName(med.nombre);
+        return !key || !inferredKeys.has(key);
+    });
+
+    result.medicamentos = [...merged, ...extras];
+}
 // Regex-based OCR parser
 function parsePrescriptionText(text) {
     const result = {
@@ -1834,7 +1976,7 @@ function parsePrescriptionText(text) {
     const cleanedLines = rawLines.map(l => cleanOcrText(l));
 
     // Folio (R-XXXXX or 2026-XXXXXXXX, or 7-digit starting with 30)
-    const folioRegex = /(?:folio|receta|no\.?\s*receta|no\.?\s*folio)[:\s]+([A-Z0-9-]{5,20})|([A-Z0-9]{3,4}-\d{5,10})|\b(\d{4}-\d{8})\b|\b(3[0O\d][A-Z0-9]{5})\b/i;
+    const folioRegex = /(?:folio|no\.?\s*receta|no\.?\s*folio)[:\s]+([A-Z0-9-]{5,20})|([A-Z0-9]{3,4}-\d{5,10})|\b(\d{4}-\d{8})\b|\b(3[0O\d][A-Z0-9]{5})\b/i;
     for (const line of rawLines) {
         const match = line.match(folioRegex);
         if (match) {
@@ -2157,6 +2299,8 @@ function parsePrescriptionText(text) {
         }
     }
 
+    mergeFixedFormatMedicines(result, normalizedText);
+
     result.medicamentos = result.medicamentos
         .filter(med => med && med.nombre && !/^(CLAVE|MEDICAMENTO|DOSIS|VIA|VÍA)$/i.test(med.nombre))
         .map(med => ({
@@ -2252,8 +2396,9 @@ function openOcrModal(data) {
                         <option value="AEM" ${med.estatus === 'AEM' ? 'selected' : ''}>AEM – Existencia en casa</option>
                         <option value="AIC" ${med.estatus === 'AIC' || !med.estatus ? 'selected' : ''}>AIC – Existencia en clínica</option>
                         <option value="EPI" ${med.estatus === 'EPI' ? 'selected' : ''}>EPI – Entrega parcial de insumo</option>
-                        <option value="AT" ${med.estatus === 'AT' ? 'selected' : ''}>AT – Acumulado</option>
+                        <option value="AT" ${med.estatus === 'AT' ? 'selected' : ''}>AT – Alternativa terapéutica</option>
                         <option value="IES" ${med.estatus === 'IES' ? 'selected' : ''}>IES – Incumplimiento en entrega de insumo</option>
+                        <option value="C" ${med.estatus === 'C' ? 'selected' : ''}>C – Completo</option>
                     </select>
                 </div>
             `;
@@ -2349,8 +2494,9 @@ function applyOcrData() {
                             <option value="AEM" ${estatus === 'AEM' ? 'selected' : ''}>AEM – Existencia en casa</option>
                             <option value="AIC" ${estatus === 'AIC' ? 'selected' : ''}>AIC – Existencia en clínica</option>
                             <option value="EPI" ${estatus === 'EPI' ? 'selected' : ''}>EPI – Entrega parcial de insumo</option>
-                            <option value="AT" ${estatus === 'AT' ? 'selected' : ''}>AT – Acumulado</option>
+                            <option value="AT" ${estatus === 'AT' ? 'selected' : ''}>AT – Alternativa terapéutica</option>
                             <option value="IES" ${estatus === 'IES' ? 'selected' : ''}>IES – Incumplimiento en entrega de insumo</option>
+                            <option value="C" ${estatus === 'C' ? 'selected' : ''}>C – Completo</option>
                         </select>
                     </div>
                     <button type="button" class="btn-icon danger remove-med"><i class="ph-bold ph-minus"></i></button>
@@ -2433,8 +2579,9 @@ function addEmptyMedRow() {
                     <option value="AEM">AEM – Existencia en casa</option>
                     <option value="AIC">AIC – Existencia en clínica</option>
                     <option value="EPI">EPI – Entrega parcial de insumo</option>
-                    <option value="AT">AT – Acumulado</option>
+                    <option value="AT">AT – Alternativa terapéutica</option>
                     <option value="IES">IES – Incumplimiento en entrega de insumo</option>
+                    <option value="C">C – Completo</option>
                 </select>
             </div>
             <button type="button" class="btn-icon danger remove-med"><i class="ph-bold ph-minus"></i></button>
