@@ -752,6 +752,9 @@ async function recognizePrescriptionRegions(dataUrl, stepText) {
     if (stepText) stepText.innerText = 'Leyendo zonas clave del formato INPer...';
     const regions = [
         { label: 'top-right-expediente', region: { x: 0.62, y: 0.135, w: 0.34, h: 0.125 }, psm: '6', scale: 3.2 },
+        { label: 'patient-bold-name-soft', region: { x: 0.115, y: 0.184, w: 0.33, h: 0.045 }, psm: '7', scale: 5.2, threshold: 148, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ' },
+        { label: 'patient-bold-name-mid', region: { x: 0.115, y: 0.184, w: 0.33, h: 0.045 }, psm: '7', scale: 5.2, threshold: 164, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ' },
+        { label: 'patient-bold-name-lowline', region: { x: 0.105, y: 0.205, w: 0.35, h: 0.045 }, psm: '7', scale: 5.2, threshold: 154, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ' },
         { label: 'patient-name', region: { x: 0.055, y: 0.185, w: 0.36, h: 0.055 }, psm: '7', scale: 3.6 },
         { label: 'patient-name-lower', region: { x: 0.04, y: 0.225, w: 0.42, h: 0.055 }, psm: '7', scale: 3.8 },
         { label: 'patient-header', region: { x: 0.04, y: 0.215, w: 0.92, h: 0.085 }, psm: '6', scale: 2.8 },
@@ -767,7 +770,8 @@ async function recognizePrescriptionRegions(dataUrl, stepText) {
             const text = await recognizeRegionText(dataUrl, item.region, item.label, {
                 psm: item.psm,
                 scale: item.scale,
-                threshold: 168
+                threshold: item.threshold || 168,
+                whitelist: item.whitelist
             });
             if (text && text.trim()) {
                 output.push('REGION ' + item.label);
@@ -2100,6 +2104,21 @@ function parsePrescriptionText(text) {
         return { idx, lines };
     }
 
+    function getAllRegionPayloadLines(labelPattern, maxLines = 8) {
+        const lines = [];
+        let firstIdx = -1;
+        for (let idx = 0; idx < rawLines.length; idx++) {
+            if (!labelPattern.test(rawLines[idx])) continue;
+            if (firstIdx === -1) firstIdx = idx;
+            for (let i = idx + 1; i < cleanedLines.length && lines.length < maxLines; i++) {
+                if (isRegionMarker(rawLines[i]) || isRegionMarker(cleanedLines[i])) break;
+                const line = cleanedLines[i].trim();
+                if (line) lines.push(line);
+            }
+        }
+        return { idx: firstIdx, lines };
+    }
+
     function isLikelyPatientName(value) {
         const name = cleanPersonName(value);
         if (name.length < 8 || name.length > 60) return false;
@@ -2123,10 +2142,11 @@ function parsePrescriptionText(text) {
     }
 
     let patientLine = '';
+    const patientBoldNameRegion = getAllRegionPayloadLines(/REGION\s+patient-bold-name/i, 9);
     const patientNameRegion = getRegionPayloadLines(/REGION\s+patient-name$/i, 6);
     const patientNameLowerRegion = getRegionPayloadLines(/REGION\s+patient-name-lower$/i, 6);
-    const patientNameIdx = patientNameRegion.idx !== -1 ? patientNameRegion.idx : patientNameLowerRegion.idx;
-    const patientNameLines = [...patientNameRegion.lines, ...patientNameLowerRegion.lines];
+    const patientNameIdx = patientBoldNameRegion.idx !== -1 ? patientBoldNameRegion.idx : (patientNameRegion.idx !== -1 ? patientNameRegion.idx : patientNameLowerRegion.idx);
+    const patientNameLines = [...patientBoldNameRegion.lines, ...patientNameRegion.lines, ...patientNameLowerRegion.lines];
     for (const line of patientNameLines) {
         const candidate = line.replace(/^.*(?:PAC[I1]EN[T1]E|NOMBR[E3]|PAC[I1]EN|P\s*A\s*C\s*I\s*E\s*N\s*T\s*E)[:\s\-]+/i, '').trim();
         if (isLikelyPatientName(candidate)) {
