@@ -203,6 +203,7 @@ document.getElementById('receta-form').addEventListener('submit', async (e) => {
         if (freqVal === '6h') freqNum = 4;
         if (freqVal === '48h') freqNum = 0.5;
         if (freqVal === '72h') freqNum = 0.3333;
+        if (freqVal === '168h') freqNum = 0.1429;
 
         const dosisNum = parseInt(dosis.match(/\d+/)?.[0]) || 1;
         const cantNum = parseInt(cantidad.match(/\d+/)?.[0]) || 1;
@@ -1203,7 +1204,9 @@ window.loadPatientSFT = function() {
                 }
 
                 let rec = '';
-                if (m.frecuencia === '72h' || m.frecuencia === '48h') {
+                if (m.frecuencia === '168h') {
+                    rec = 'Tomar semanalmente';
+                } else if (m.frecuencia === '72h' || m.frecuencia === '48h') {
                     rec = `Tomar cada ${m.frecuencia === '72h' ? '3' : '2'} días`;
                 }
                 const lowerName = m.nombre.toLowerCase();
@@ -1772,7 +1775,8 @@ function normalizeDrugName(name) {
     if (l.includes('plantago') || l.includes('fibra')) return "PLANTAGO PSYLLIUM POLVO";
     if (l.includes('folic') || l.includes('fólic')) return "ÁCIDO FÓLICO 5 MG TABLETA";
     if (l.includes('hierro') || l.includes('fumarato')) return "FUMARATO FERROSO TABLETA";
-    if (l.includes('estrog')) return "ESTRÓGENOS CONJUGADOS CREMA VAGINAL";
+    if (l.includes('alend')) return "ACIDO ALENDRONICO 70 MG TABLETA O COMPRIMIDO";
+    if (l.includes('estrog') || l.includes('conjug')) return "ESTRÓGENOS CONJUGADOS CREMA VAGINAL";
     if (l.includes('fonda')) return "FONDAPARINUX SÓDICO 2.5 MG";
     if (l.includes('glarg') || l.includes('insul')) {
         if (l.includes('100') || l.includes('solución') || l.includes('inyect')) {
@@ -1816,6 +1820,8 @@ function cleanPersonName(value) {
 }
 
 const FIXED_FORMAT_MED_CATALOG = [
+    { key: 'alendronico', aliases: ['acido alendronico', 'alendronico', 'alendron'], nombre: 'ACIDO ALENDRONICO 70 MG TABLETA O COMPRIMIDO', clave: '010.000.4164.00', dosis: '70 MG', frecuencia: '168h', duracion: '90 dias' },
+    { key: 'estrogenos_conjugados', aliases: ['estrogenos conjugados', 'estrogenos', 'conjugados', 'crema vaginal'], nombre: 'ESTROGENOS CONJUGADOS CREMA VAGINAL', clave: '010.000.1506.00', dosis: '1 G', frecuencia: '24h', duracion: '90 dias' },
     { key: 'metformina', aliases: ['metformina', 'metformin'], nombre: 'METFORMINA 850 MG TABLETA', clave: '010.000.5165.00', dosis: '850 MG', frecuencia: '8h', duracion: '90 dias' },
     { key: 'dapagliflozina', aliases: ['dapagliflozina', 'dapaglif'], nombre: 'DAPAGLIFLOZINA 10MG TAB', clave: '010.000.6007.01', dosis: '10 MG', frecuencia: '24h', duracion: '90 dias' },
     { key: 'insulina_glargina', aliases: ['insulina glargina', 'glargina'], nombre: 'INSULINA GLARGINA ENVASE CON UN FRASCO AMPULA CON 10 ML', clave: '010.000.4158.00', dosis: '', frecuencia: '24h', duracion: '90 dias' },
@@ -1851,6 +1857,8 @@ function inferDoseNearText(source, aliasIndex, fallback = '', preferLastUi = fal
 
 function inferFrequencyNearText(source, aliasIndex, fallback = '24h') {
     const windowText = source.slice(aliasIndex, aliasIndex + 280);
+    if (/semanal|cada\s+semana|1\s+vez\s+por\s+semana/i.test(windowText)) return '168h';
+    if (/2\s+veces\s+por\s+semana/i.test(windowText)) return '72h';
     const cada = windowText.match(/cada\s+(\d+)\s*horas/i) || windowText.match(/c\/(\d+)h/i);
     return cada ? cada[1] + 'h' : fallback;
 }
@@ -2071,6 +2079,16 @@ function parsePrescriptionText(text) {
         expCandidates.sort((a, b) => b.score - a.score);
         result.expediente = expCandidates[0].value;
     }
+    const patientNameReject = /\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|observaciones|surtido|receta|folio|expediente|curp|fecha|edad|cedula|cédula|firma|instituto|hospital|farmacia|telefono|teléfono|tableta|comprimido|capsula|cápsula|crema|vaginal|oral|intravaginal|aplicar|tomar|acido|ácido|estrogenos|estrógenos|conjugados|alendronico|alendrónico|mg|ml|mcg|ui|caja|cajas|dias|días)\b/i;
+
+    function isLikelyPatientName(value) {
+        const name = cleanPersonName(value);
+        if (name.length < 8 || name.length > 60) return false;
+        if (/\d/.test(name) || patientNameReject.test(name)) return false;
+        const words = name.split(/\s+/).filter(Boolean);
+        if (words.length < 2 || words.length > 6) return false;
+        return words.every(word => word.length >= 2 || /^(DE|LA|EL|Y)$/.test(word));
+    }
     // Paciente Name (using relative positioning and label-stripping)
     let folioLineIdx = -1;
     for (let i = 0; i < rawLines.length; i++) {
@@ -2091,8 +2109,10 @@ function parsePrescriptionText(text) {
     // Method B: Fallback to the first non-empty line after FOLIO/EXPEDIENTE line (position is always the same)
     if (!patientLine && folioLineIdx !== -1) {
         for (let k = folioLineIdx + 1; k < cleanedLines.length; k++) {
-            if (cleanedLines[k].trim().length > 0) {
-                patientLine = cleanedLines[k];
+            const fallbackName = cleanedLines[k].trim();
+            if (/\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|observaciones)\b/i.test(fallbackName)) break;
+            if (isLikelyPatientName(fallbackName)) {
+                patientLine = fallbackName;
                 break;
             }
         }
@@ -2115,7 +2135,7 @@ function parsePrescriptionText(text) {
         
         // Clean up the name string
         let pName = cleanPersonName(namePart);
-        if (pName.length > 5 && !pName.includes('MEDICO') && !pName.includes('DR') && !pName.includes('DRA') && !pName.includes('INSTITUTO')) {
+        if (isLikelyPatientName(pName)) {
             result.paciente = pName;
         }
     }
@@ -2203,7 +2223,7 @@ function parsePrescriptionText(text) {
     // Medications
     let currentMed = null;
     let pendingClave = '';
-    const drugSubRoots = ['para', 'cetam', 'ibup', 'buprof', 'amox', 'clavulan', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ondan', 'ketop', 'esome', 'omepr', 'pantop', 'estrog', 'fonda', 'plantago', 'fibra', 'ácido', 'acido', 'folic', 'hierro', 'nifed', 'metildopa', 'levot', 'enox', 'hepar'];
+    const drugSubRoots = ['para', 'cetam', 'ibup', 'buprof', 'amox', 'clavulan', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ondan', 'ketop', 'esome', 'omepr', 'pantop', 'estrog', 'conjug', 'alend', 'alendr', 'fonda', 'plantago', 'fibra', 'ácido', 'acido', 'folic', 'hierro', 'nifed', 'metildopa', 'levot', 'enox', 'hepar'];
 
     for (let i = 0; i < rawLines.length; i++) {
         const line = rawLines[i];
@@ -2213,7 +2233,7 @@ function parsePrescriptionText(text) {
         const claveMatch = line.match(/\b(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})[-.\s]?(\d{2})\b/);
         const claveValue = normalizeClave(line);
         if (claveValue && !currentMed) pendingClave = claveValue;
-        const freqMatch = line.match(/\b(c\/24h|c\/12h|c\/8h|c\/6h|c\/48h|c\/72h|cada\s+\d+\s+horas|c\/\d+h)\b/i);
+        const freqMatch = line.match(/\b(c\/24h|c\/12h|c\/8h|c\/6h|c\/48h|c\/72h|semanal|cada\s+semana|cada\s+\d+\s+horas|c\/\d+h)\b/i);
 
         let isDrugLine = false;
         let matchedDrugName = '';
@@ -2335,32 +2355,51 @@ function parsePrescriptionText(text) {
         result.medicamentos.push(currentMed);
     }
 
-    if (result.medicamentos.length === 0) {
-        const claveRows = rawLines.filter(line => /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/.test(line));
-        for (const row of claveRows) {
-            const clave = row.match(/\b(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})[-.\s]?(\d{2})\b/);
-            const claveValue = normalizeClave(row);
-            let name = cleanOcrText(row)
-                .replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/g, ' ')
-                .replace(/\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|cantidad|estatus)\b/ig, ' ')
-                .replace(/\b(?:c\/\d+h|cada\s+\d+\s+horas|\d+\s*(?:dias|días|cajas?|piezas?|frascos?))\b/ig, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-            if (name.length < 4) continue;
-            result.medicamentos.push({
-                nombre: normalizeDrugName(name),
-                clave: claveValue || (clave ? clave.slice(1).join('.') : ''),
-                lote: extractLote(row, excludeList) || '',
-                caducidad: extractCaducidad(row) || '',
-                estatus: /\b(EPI|AEM|AIC|AT|IES)\b/i.test(row) ? row.match(/\b(EPI|AEM|AIC|AT|IES)\b/i)[1].toUpperCase() : 'AIC',
-                dosis: (row.match(/\b\d+\s*(?:ui|mg|g|ml|mcg|tabletas?|tabs?|capsulas?|cápsulas?)\b/i) || ['1'])[0].toUpperCase(),
-                frecuencia: ((row.match(/c\/(24|12|8|6|48|72)h/i) || [,'24'])[1]) + 'h',
-                duracion: (row.match(/\b\d+\s*(?:dias|días|mes|meses|semanas|sem)\b/i) || [''])[0],
-                cantidad: (row.match(/\b(?:\d+|una|un)\s*(?:cajas?|frascos?|piezas?|unidades?)\b/i) || ['1'])[0]
-            });
+    function medicineFromClaveRow(row) {
+        const clave = row.match(/\b(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})[-.\s]?(\d{2})\b/);
+        const claveValue = normalizeClave(row) || (clave ? `${clave[1]}.${clave[2]}.${clave[3]}.${clave[4]}` : '');
+        if (!claveValue) return null;
+
+        let name = cleanOcrText(row)
+            .replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/g, ' ')
+            .replace(/\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|cantidad|estatus|surtido|observaciones)\b/ig, ' ')
+            .replace(/\b(?:oral|vaginal|intravaginal|subcutanea|subcutánea|semanal|cada\s+\d+\s+horas|cada\s+semana|c\/\d+h|\d+\s*(?:dias|días|cajas?|piezas?|frascos?))\b/ig, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (name.length < 4 || /^(CLAVE|MEDICAMENTO|DOSIS|VIA|VÍA)$/i.test(name)) return null;
+
+        const freqText = row.match(/\b(semanal|cada\s+semana|c\/(24|12|8|6|48|72)h|cada\s+(\d+)\s+horas)\b/i);
+        let frecuencia = '24h';
+        if (freqText) {
+            const rawFreq = freqText[0].toLowerCase();
+            if (/semanal|cada\s+semana/.test(rawFreq)) frecuencia = '168h';
+            else {
+                const hours = rawFreq.match(/\d+/);
+                if (hours && ['24', '12', '8', '6', '48', '72'].includes(hours[0])) frecuencia = hours[0] + 'h';
+            }
         }
+
+        return {
+            nombre: normalizeDrugName(name),
+            clave: claveValue,
+            lote: extractLote(row, excludeList) || '',
+            caducidad: extractCaducidad(row) || '',
+            estatus: /\b(EPI|AEM|AIC|AT|IES|C)\b/i.test(row) ? row.match(/\b(EPI|AEM|AIC|AT|IES|C)\b/i)[1].toUpperCase() : 'AIC',
+            dosis: (row.match(/\b\d+\s*(?:ui|mg|g|ml|mcg|tabletas?|tabs?|capsulas?|cápsulas?)\b/i) || ['1'])[0].toUpperCase(),
+            frecuencia,
+            duracion: (row.match(/\b\d+\s*(?:dias|días|mes|meses|semanas|sem)\b/i) || [''])[0],
+            cantidad: (row.match(/\b(?:\d+|una|un)\s*(?:cajas?|frascos?|piezas?|unidades?)\b/i) || ['1'])[0]
+        };
     }
 
+    const claveRows = rawLines.filter(line => /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/.test(line));
+    for (const row of claveRows) {
+        const med = medicineFromClaveRow(row);
+        if (!med) continue;
+        const existing = result.medicamentos.find(item => item.clave && normalizeClave(item.clave) === med.clave);
+        if (!existing) result.medicamentos.push(med);
+    }
     mergeFixedFormatMedicines(result, normalizedText);
 
     result.medicamentos = result.medicamentos
@@ -2441,6 +2480,7 @@ function openOcrModal(data) {
                             <option value="6h" ${med.frecuencia === '6h' ? 'selected' : ''}>c/6h</option>
                             <option value="48h" ${med.frecuencia === '48h' ? 'selected' : ''}>c/48h</option>
                             <option value="72h" ${med.frecuencia === '72h' ? 'selected' : ''}>c/72h</option>
+                            <option value="168h" ${med.frecuencia === '168h' ? 'selected' : ''}>semanal</option>
                         </select>
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 80px;">
@@ -2538,6 +2578,7 @@ function applyOcrData() {
                                 <option value="6h" ${freq === '6h' ? 'selected' : ''}>c/6h</option>
                                 <option value="48h" ${freq === '48h' ? 'selected' : ''}>c/48h</option>
                                 <option value="72h" ${freq === '72h' ? 'selected' : ''}>c/72h</option>
+                                <option value="168h" ${freq === '168h' ? 'selected' : ''}>semanal</option>
                             </select>
                         </div>
                         <div class="form-group small">
@@ -2623,6 +2664,7 @@ function addEmptyMedRow() {
                         <option value="6h">c/6h</option>
                         <option value="48h">c/48h</option>
                         <option value="72h">c/72h</option>
+                                                <option value="168h">semanal</option>
                     </select>
                 </div>
                 <div class="form-group small">
