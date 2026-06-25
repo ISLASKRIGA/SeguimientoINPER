@@ -749,46 +749,56 @@ async function recognizeRegionText(dataUrl, region, label, options = {}) {
 }
 
 async function recognizePrescriptionRegions(dataUrl, stepText) {
-    if (stepText) stepText.innerText = 'Leyendo zonas clave del formato INPer...';
-    const regions = [
+    if (stepText) stepText.innerText = 'Leyendo campos clave del formato INPer...';
+    const essentialRegions = [
         { label: 'top-right-expediente', region: { x: 0.62, y: 0.135, w: 0.34, h: 0.125 }, psm: '6', scale: 3.2 },
-        { label: 'patient-label-line-soft', region: { x: 0.035, y: 0.176, w: 0.43, h: 0.06 }, psm: '6', scale: 4.8, threshold: 148, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ: ' },
         { label: 'patient-label-line-mid', region: { x: 0.035, y: 0.188, w: 0.43, h: 0.06 }, psm: '6', scale: 4.8, threshold: 160, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ: ' },
-        { label: 'patient-bold-name-soft', region: { x: 0.105, y: 0.182, w: 0.38, h: 0.05 }, psm: '7', scale: 5.4, threshold: 146, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ ' },
         { label: 'patient-bold-name-mid', region: { x: 0.105, y: 0.194, w: 0.38, h: 0.05 }, psm: '7', scale: 5.4, threshold: 160, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ ' },
+        { label: 'table-full', region: { x: 0.045, y: 0.285, w: 0.91, h: 0.28 }, psm: '6', scale: 2.5 },
+        { label: 'table-medicamento-column', region: { x: 0.10, y: 0.285, w: 0.24, h: 0.28 }, psm: '6', scale: 3.0 },
+        { label: 'doctor-label-line-mid', region: { x: 0.045, y: 0.515, w: 0.46, h: 0.07 }, psm: '6', scale: 4.2, threshold: 164, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ/: ' },
+        { label: 'service-doctor-band', region: { x: 0.04, y: 0.50, w: 0.76, h: 0.105 }, psm: '6', scale: 2.8 }
+    ];
+    const fallbackRegions = [
+        { label: 'patient-label-line-soft', region: { x: 0.035, y: 0.176, w: 0.43, h: 0.06 }, psm: '6', scale: 4.8, threshold: 148, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ: ' },
+        { label: 'patient-bold-name-soft', region: { x: 0.105, y: 0.182, w: 0.38, h: 0.05 }, psm: '7', scale: 5.4, threshold: 146, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ ' },
         { label: 'patient-bold-name-lowline', region: { x: 0.095, y: 0.206, w: 0.40, h: 0.05 }, psm: '7', scale: 5.4, threshold: 152, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ ' },
         { label: 'patient-name', region: { x: 0.055, y: 0.185, w: 0.36, h: 0.055 }, psm: '7', scale: 3.6 },
         { label: 'patient-name-lower', region: { x: 0.04, y: 0.225, w: 0.42, h: 0.055 }, psm: '7', scale: 3.8 },
         { label: 'patient-header', region: { x: 0.04, y: 0.215, w: 0.92, h: 0.085 }, psm: '6', scale: 2.8 },
-        { label: 'table-full', region: { x: 0.045, y: 0.285, w: 0.91, h: 0.28 }, psm: '6', scale: 2.5 },
-        { label: 'table-medicamento-column', region: { x: 0.10, y: 0.285, w: 0.24, h: 0.28 }, psm: '6', scale: 3.0 },
         { label: 'doctor-label-line-soft', region: { x: 0.045, y: 0.49, w: 0.46, h: 0.07 }, psm: '6', scale: 4.2, threshold: 150, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ/: ' },
-        { label: 'doctor-label-line-mid', region: { x: 0.045, y: 0.515, w: 0.46, h: 0.07 }, psm: '6', scale: 4.2, threshold: 164, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ/: ' },
-        { label: 'doctor-name', region: { x: 0.055, y: 0.505, w: 0.43, h: 0.075 }, psm: '6', scale: 3.4 },
-        { label: 'service-doctor-band', region: { x: 0.04, y: 0.50, w: 0.76, h: 0.105 }, psm: '6', scale: 2.8 }
+        { label: 'doctor-name', region: { x: 0.055, y: 0.505, w: 0.43, h: 0.075 }, psm: '6', scale: 3.4 }
     ];
     const output = [];
 
-    for (const item of regions) {
-        try {
-            const text = await recognizeRegionText(dataUrl, item.region, item.label, {
-                psm: item.psm,
-                scale: item.scale,
-                threshold: item.threshold || 168,
-                whitelist: item.whitelist
-            });
-            if (text && text.trim()) {
-                output.push('REGION ' + item.label);
-                output.push(text.trim());
+    const runRegionSet = async (regions) => {
+        for (const item of regions) {
+            try {
+                const text = await recognizeRegionText(dataUrl, item.region, item.label, {
+                    psm: item.psm,
+                    scale: item.scale,
+                    threshold: item.threshold || 168,
+                    whitelist: item.whitelist
+                });
+                if (text && text.trim()) {
+                    output.push('REGION ' + item.label);
+                    output.push(text.trim());
+                }
+            } catch (err) {
+                console.warn('Regional OCR failed:', item.label, err);
             }
-        } catch (err) {
-            console.warn('Regional OCR failed:', item.label, err);
         }
+    };
+
+    await runRegionSet(essentialRegions);
+    const essentialParsed = parsePrescriptionText(output.join('\n'));
+    if (!essentialParsed.paciente || !essentialParsed.medico) {
+        if (stepText) stepText.innerText = 'Afinando paciente y medico...';
+        await runRegionSet(fallbackRegions);
     }
 
     return output.join('\n');
 }
-
 function scoreParsedPrescription(parsed, text = '') {
     if (!parsed) return 0;
     let score = 0;
@@ -806,15 +816,26 @@ function scoreParsedPrescription(parsed, text = '') {
 async function recognizePrescription(dataUrl, stepText) {
     const processed = await preprocessImageForOCR(dataUrl, stepText);
     const regionalText = await recognizePrescriptionRegions(dataUrl, stepText);
-    const attempts = [
-        { image: processed, label: "Leyendo receta optimizada", lang: 'eng' },
-        { image: processed, label: "Leyendo receta optimizada", lang: 'spa+eng' },
-        { image: processed, label: "Leyendo receta optimizada", lang: 'spa' },
-        { image: dataUrl, label: "Validando lectura original", lang: 'eng' },
-        { image: dataUrl, label: "Validando lectura original", lang: 'spa+eng' }
-    ];
     const results = [];
     const failedAttempts = [];
+    const regionalParsed = parsePrescriptionText(regionalText);
+    const regionalScore = scoreParsedPrescription(regionalParsed, regionalText);
+    if (regionalText) {
+        results.push({ text: regionalText, parsed: regionalParsed, score: regionalScore });
+    }
+
+    const hasEnoughRegionalData = regionalParsed.folio
+        && regionalParsed.expediente
+        && regionalParsed.paciente
+        && regionalParsed.medico
+        && regionalParsed.servicio
+        && (regionalParsed.medicamentos || []).length > 0;
+
+    const attempts = hasEnoughRegionalData ? [] : [
+        { image: processed, label: "Leyendo receta optimizada", lang: 'eng' },
+        { image: processed, label: "Validando campos faltantes", lang: 'spa+eng' },
+        { image: dataUrl, label: "Validando foto original", lang: 'eng' }
+    ];
 
     for (const attempt of attempts) {
         try {
@@ -825,20 +846,15 @@ async function recognizePrescription(dataUrl, stepText) {
             );
             const text = [response?.data?.text || '', regionalText].filter(Boolean).join('\n');
             const parsed = parsePrescriptionText(text);
-            results.push({
-                text,
-                parsed,
-                score: scoreParsedPrescription(parsed, text)
-            });
+            const score = scoreParsedPrescription(parsed, text);
+            results.push({ text, parsed, score });
+
+            const criticalFieldsReady = parsed.folio && parsed.expediente && parsed.paciente && parsed.medico && parsed.servicio;
+            if (criticalFieldsReady && score >= 74) break;
         } catch (err) {
             console.warn('OCR attempt failed:', attempt.lang, err);
             failedAttempts.push({ lang: attempt.lang, message: err?.message || String(err) });
         }
-    }
-
-    if (results.length === 0 && regionalText) {
-        const parsed = parsePrescriptionText(regionalText);
-        results.push({ text: regionalText, parsed, score: scoreParsedPrescription(parsed, regionalText) });
     }
 
     if (results.length === 0) {
@@ -1778,6 +1794,8 @@ function normalizeDrugName(name) {
     if (l.includes('preg')) return "PREGABALINA 75 MG CÁPSULA";
     if (l.includes('sitag')) return "SITAGLIPTINA METFORMINA COMPRIMIDO 50 MG";
     if (l.includes('dapag')) return "DAPAGLIFLOZINA 10MG TAB";
+    if (l.includes('letroz')) return "LETROZOL 2.5 MG TABLETA";
+    if (l.includes('celecox')) return "CELECOXIB 200 MG CAPSULA";
     if (l.includes('cefal')) return "CEFALEXINA 500 MG TABLETA";
     if (l.includes('ondas')) return "ONDASETRON 8 MG TABLETA";
     if (l.includes('ketop')) return "KETOPROFENO 100 MG TABLETA";
@@ -2373,15 +2391,32 @@ function parsePrescriptionText(text) {
     // Medications
     let currentMed = null;
     let pendingClave = '';
-    const drugSubRoots = ['para', 'cetam', 'ibup', 'buprof', 'amox', 'clavulan', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ondan', 'ketop', 'esome', 'omepr', 'pantop', 'estrog', 'conjug', 'alend', 'alendr', 'fonda', 'plantago', 'fibra', 'ácido', 'acido', 'folic', 'hierro', 'nifed', 'metildopa', 'levot', 'enox', 'hepar'];
+    const drugSubRoots = ['para', 'cetam', 'ibup', 'buprof', 'amox', 'clavulan', 'insul', 'glarg', 'metfor', 'losar', 'prega', 'sitag', 'dapag', 'cefal', 'ondas', 'ondan', 'ketop', 'esome', 'omepr', 'pantop', 'estrog', 'conjug', 'alend', 'alendr', 'fonda', 'plantago', 'fibra', 'ácido', 'acido', 'folic', 'hierro', 'nifed', 'metildopa', 'levot', 'letroz', 'celecox', 'tamox', 'anastro', 'exemes', 'enox', 'hepar'];
 
     for (let i = 0; i < rawLines.length; i++) {
         const line = rawLines[i];
         const cleanLine = cleanedLines[i];
-        if (/^REGION\s+/i.test(line)) continue;
+        if (/^REGION\s+/i.test(line)) {
+            if (currentMed) {
+                result.medicamentos.push(currentMed);
+                currentMed = null;
+                pendingClave = '';
+            }
+            continue;
+        }
+        if (currentMed && /\b(?:paciente|m[eé]dico|medico|servicio|folio|expediente|curp|cedula|c[eé]dula|firma)\b/i.test(line)) {
+            result.medicamentos.push(currentMed);
+            currentMed = null;
+            pendingClave = '';
+            continue;
+        }
         
         const claveMatch = line.match(/\b(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})[-.\s]?(\d{2})\b/);
         const claveValue = normalizeClave(line);
+        if (claveValue && currentMed && normalizeClave(currentMed.clave) && normalizeClave(currentMed.clave) !== claveValue) {
+            result.medicamentos.push(currentMed);
+            currentMed = null;
+        }
         if (claveValue && !currentMed) pendingClave = claveValue;
         const freqMatch = line.match(/\b(c\/24h|c\/12h|c\/8h|c\/6h|c\/48h|c\/72h|semanal|cada\s+semana|cada\s+\d+\s+horas|c\/\d+h)\b/i);
 
@@ -2409,7 +2444,7 @@ function parsePrescriptionText(text) {
             // Remove clave if present (with or without dots/spaces/dashes)
             cleanName = cleanName.replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/g, '').trim();
             // Remove common trailing table elements
-            cleanName = cleanName.replace(/\b\d+\s*(?:ui|mg|g|ml|mcg|tab|tabletas|cajas?|días|dias|horas|hrs|vía|via|subcutánea|subcutanea|cada).*$/i, '').trim();
+            cleanName = cleanName.replace(/\b(?:oral|vaginal|intravaginal|subcutanea|subcutánea|vía|via|cada|semanal|c\/\d+h|\d+\s*(?:días|dias|horas|hrs|cajas?)).*$/i, '').trim();
             // Remove common header noises
             cleanName = cleanName.replace(/^(?:clave|medicamento|dosis|vía|via|intervalo|duración|duracion|observaciones|surtido|surtidas)\s+/i, '');
             // Clean double spaces
@@ -2465,7 +2500,7 @@ function parsePrescriptionText(text) {
             }
 
             // Extract string dosis (e.g. "22 UI")
-            const dosisStrMatches = [...line.matchAll(/(\d+\s*(?:ui|mg|g|ml|mcg|tab|tableta|tabletas|cáp|cápsula|cápsulas|unidades?))/ig)];
+            const dosisStrMatches = [...line.matchAll(/(\d+(?:\.\d+)?\s*(?:ui|mg|g|ml|mcg|tab|tableta|tabletas|cáp|cápsula|cápsulas|unidades?))/ig)];
             if (dosisStrMatches.length > 1) {
                 currentMed.dosis = dosisStrMatches[1][0].toUpperCase();
             } else if (dosisStrMatches.length === 1) {
@@ -2536,14 +2571,29 @@ function parsePrescriptionText(text) {
             lote: extractLote(row, excludeList) || '',
             caducidad: extractCaducidad(row) || '',
             estatus: /\b(EPI|AEM|AIC|AT|IES|C)\b/i.test(row) ? row.match(/\b(EPI|AEM|AIC|AT|IES|C)\b/i)[1].toUpperCase() : 'AIC',
-            dosis: (row.match(/\b\d+\s*(?:ui|mg|g|ml|mcg|tabletas?|tabs?|capsulas?|cápsulas?)\b/i) || ['1'])[0].toUpperCase(),
+            dosis: (row.match(/\b\d+(?:\.\d+)?\s*(?:ui|mg|g|ml|mcg|tabletas?|tabs?|capsulas?|cápsulas?)\b/i) || ['1'])[0].toUpperCase(),
             frecuencia,
             duracion: (row.match(/\b\d+\s*(?:dias|días|mes|meses|semanas|sem)\b/i) || [''])[0],
             cantidad: (row.match(/\b(?:\d+|una|un)\s*(?:cajas?|frascos?|piezas?|unidades?)\b/i) || ['1'])[0]
         };
     }
 
-    const claveRows = rawLines.filter(line => /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/.test(line));
+    const claveRows = [];
+    for (let i = 0; i < rawLines.length; i++) {
+        const line = rawLines[i];
+        if (!/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/.test(line)) continue;
+        claveRows.push(line);
+
+        const window = [line];
+        for (let j = i + 1; j < rawLines.length && j <= i + 6; j++) {
+            if (/^REGION\s+/i.test(rawLines[j])) break;
+            if (/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}[-.\s]?\d{2}\b/.test(rawLines[j])) break;
+            if (/\b(?:observaciones|surtido|firma|cedula|c[eé]dula|servicio|m[eé]dico\/a)\b/i.test(rawLines[j])) break;
+            window.push(rawLines[j]);
+        }
+        if (window.length > 1) claveRows.push(window.join(' '));
+    }
+
     for (const row of claveRows) {
         const med = medicineFromClaveRow(row);
         if (!med) continue;
