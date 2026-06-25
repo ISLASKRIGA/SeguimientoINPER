@@ -753,9 +753,11 @@ async function recognizePrescriptionRegions(dataUrl, stepText) {
     const regions = [
         { label: 'top-right-expediente', region: { x: 0.62, y: 0.135, w: 0.34, h: 0.125 }, psm: '6', scale: 3.2 },
         { label: 'patient-name', region: { x: 0.055, y: 0.185, w: 0.36, h: 0.055 }, psm: '7', scale: 3.6 },
+        { label: 'patient-name-lower', region: { x: 0.04, y: 0.225, w: 0.42, h: 0.055 }, psm: '7', scale: 3.8 },
         { label: 'patient-header', region: { x: 0.04, y: 0.215, w: 0.92, h: 0.085 }, psm: '6', scale: 2.8 },
         { label: 'table-full', region: { x: 0.045, y: 0.285, w: 0.91, h: 0.28 }, psm: '6', scale: 2.5 },
         { label: 'table-medicamento-column', region: { x: 0.10, y: 0.285, w: 0.24, h: 0.28 }, psm: '6', scale: 3.0 },
+        { label: 'doctor-name', region: { x: 0.055, y: 0.505, w: 0.43, h: 0.075 }, psm: '6', scale: 3.4 },
         { label: 'service-doctor-band', region: { x: 0.04, y: 0.50, w: 0.76, h: 0.105 }, psm: '6', scale: 2.8 }
     ];
     const output = [];
@@ -2090,6 +2092,7 @@ function parsePrescriptionText(text) {
         if (words.length < 2 || words.length > 6) return false;
         const contentWords = words.filter(word => !/^(DE|DEL|LA|LAS|LOS|EL|Y)$/.test(word));
         if (contentWords.length < 2) return false;
+        if (contentWords.some(word => /(.)\1\1/i.test(word))) return false;
         if (contentWords.filter(word => word.length >= 3).length < 2) return false;
         if (!contentWords.some(word => word.length >= 4)) return false;
         return words.every(word => word.length >= 2 || /^(Y)$/.test(word));
@@ -2173,10 +2176,46 @@ function parsePrescriptionText(text) {
         }
     }
 
-    // Doctor (supporting médico/a or medico/a and lookahead)
+    function isLikelyDoctorName(value) {
+        const name = cleanPersonName(value);
+        if (name.length < 8 || name.length > 70) return false;
+        if (/\d/.test(name)) return false;
+        if (/\b(?:PACIENTE|SERVICIO|CEDULA|CÃ‰DULA|FIRMA|INSTITUTO|UNIVERSIDAD|HOSPITAL|FARMACIA|RECETA|FOLIO|EXPEDIENTE|CLAVE|MEDICAMENTO|ONCOLOGIA|MEDICA|MÃ‰DICA)\b/i.test(name)) return false;
+        const words = name.split(/\s+/).filter(Boolean);
+        if (words.length < 2 || words.length > 6) return false;
+        return words.filter(word => word.length >= 3).length >= 2;
+    }
+
+    function extractDoctorNameCandidate(line) {
+        const stripped = String(line || '')
+            .replace(/^.*(?:m.{0,3}dico\/a|medico\/a|m.{0,3}dico|medico|doctor|dra?\.?|dr\.?)[:\s\-]+/i, '')
+            .replace(/\b(?:c.{0,3}dula|cedula|profesional|firma|instituci.{0,3}n|institucion|universidad)\b.*$/i, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const name = cleanPersonName(stripped);
+        return isLikelyDoctorName(name) ? name : '';
+    }
+
+    // Doctor (supporting medico/a labels and regional OCR)
     let docLineIdx = -1;
+    const doctorRegionIdx = rawLines.findIndex(line => /REGION\s+doctor-name/i.test(line));
+    const doctorRegionLines = doctorRegionIdx === -1 ? [] : cleanedLines.slice(doctorRegionIdx + 1, doctorRegionIdx + 5);
+    for (const line of doctorRegionLines) {
+        const doctorName = extractDoctorNameCandidate(line);
+        if (doctorName) {
+            result.medico = doctorName;
+            docLineIdx = doctorRegionIdx;
+            break;
+        }
+    }
     const docRegex = /(?:médico\/a|medico\/a|médico|medico|doctor|dr\.?|dra\.?|médico\s+tratante)[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s\.\-]+?)(?=\s*(?:Cédula|Cedula|Firma|\/|\b\d|\n|$))/i;
-    for (let i = 0; i < cleanedLines.length; i++) {
+    for (let i = 0; !result.medico && i < cleanedLines.length; i++) {
+        const explicitDoctor = extractDoctorNameCandidate(cleanedLines[i]);
+        if (explicitDoctor) {
+            result.medico = explicitDoctor;
+            docLineIdx = i;
+            break;
+        }
         const match = cleanedLines[i].match(docRegex);
         if (match) {
             result.medico = match[1].trim().toUpperCase();
