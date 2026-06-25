@@ -2184,35 +2184,78 @@ function parsePrescriptionText(text) {
         }
     }
 
-    // Extract Servicio - prioritizing positioning right above the doctor line (after the table)
-    if (docLineIdx > 0) {
-        for (let j = docLineIdx - 1; j >= 0; j--) {
-            const candidateLine = cleanedLines[j].trim();
-            if (candidateLine.length > 3 && !/^\d+/.test(candidateLine) && 
-                !candidateLine.toLowerCase().includes('días') && !candidateLine.toLowerCase().includes('dias') && 
-                !candidateLine.toLowerCase().includes('duración') && !candidateLine.toLowerCase().includes('observaciones') &&
-                !candidateLine.includes(':') && !candidateLine.includes('=')) {
-                result.servicio = candidateLine.toUpperCase();
+    function normalizeOcrService(value, allowUnknown = false) {
+        const raw = String(value || '')
+            .replace(/^.*\b(?:servicio|serv\.?|area|área|cl[ií]nica|especialidad)\b\s*[:\-]?\s*/i, '')
+            .replace(/\b(?:medico|médico|dra?|doctor|cedula|cédula|firma|paciente|folio|expediente|fecha|edad|curp|receta|clave|medicamento|dosis|observaciones)\b.*$/i, '')
+            .replace(/[^A-ZÁÉÍÓÚÑa-záéíóúñ\s.]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!raw) return '';
+
+        const simplified = simplifyOcrText(raw);
+        const services = [
+            { value: 'PSIQUIATRIA', aliases: ['psiquiatria', 'psiquiat'] },
+            { value: 'CLIMATERIO', aliases: ['climaterio', 'climater'] },
+            { value: 'OBSTETRICIA', aliases: ['obstetricia', 'obstetri'] },
+            { value: 'GINECOLOGIA', aliases: ['ginecologia', 'gineco'] },
+            { value: 'ONCOLOGIA', aliases: ['oncologia', 'onco'] },
+            { value: 'DERMATOLOGIA', aliases: ['dermatologia', 'dermato'] },
+            { value: 'PSICOLOGIA', aliases: ['psicologia', 'psicol'] },
+            { value: 'UROLOGIA', aliases: ['urologia', 'urolo'] },
+            { value: 'COLPOSCOPIA', aliases: ['colposcopia', 'colpo'] },
+            { value: 'ENDOCRINOLOGIA', aliases: ['endocrinologia', 'endocrino'] },
+            { value: 'HEMATOLOGIA', aliases: ['hematologia', 'ematologia', 'hemato'] },
+            { value: 'NEONATOLOGIA', aliases: ['neonatologia', 'neonato'] },
+            { value: 'PEDIATRIA', aliases: ['pediatria', 'pediatri'] },
+            { value: 'INFECTOLOGIA', aliases: ['infectologia', 'infecto'] },
+            { value: 'CARDIOLOGIA', aliases: ['cardiologia', 'cardio'] },
+            { value: 'NEUROLOGIA', aliases: ['neurologia', 'neuro'] },
+            { value: 'GENETICA', aliases: ['genetica'] },
+            { value: 'URGENCIAS', aliases: ['urgencias', 'urgencia'] },
+            { value: 'CONSULTA EXTERNA', aliases: ['consulta externa'] }
+        ];
+
+        const hit = services.find(service => service.aliases.some(alias => simplified.includes(alias)));
+        if (hit) return hit.value;
+
+        if (!allowUnknown) return '';
+        if (/\b(?:instituto|hospital|farmacia|coordinacion|direccion|subdireccion|departamento|telefono|www|avenida|calle|colonia|tableta|crema|vaginal|oral|tomar|aplicar)\b/i.test(simplified)) return '';
+        const words = raw.toUpperCase().split(/\s+/).filter(Boolean);
+        if (words.length < 1 || words.length > 4) return '';
+        return words.join(' ');
+    }
+
+    // Extract Servicio using known clinical services. Avoid free-text garbage from OCR.
+    const explicitServiceLines = cleanedLines.filter(line => /\b(?:servicio|serv\.?|area|área|cl[ií]nica|especialidad)\b/i.test(line));
+    for (const line of explicitServiceLines) {
+        const service = normalizeOcrService(line, true);
+        if (service) {
+            result.servicio = service;
+            break;
+        }
+    }
+
+    if (!result.servicio && docLineIdx > 0) {
+        for (let j = docLineIdx - 1; j >= Math.max(0, docLineIdx - 6); j--) {
+            const service = normalizeOcrService(cleanedLines[j], false);
+            if (service) {
+                result.servicio = service;
                 break;
             }
         }
     }
 
-    // General fallback for Servicio if not found near doctor line (skipping header farmacia matches)
     if (!result.servicio) {
-        const serviceKeywords = ['obstetricia', 'ginecología', 'ginecologia', 'neonatología', 'neonatologia', 'pediatría', 'pediatria', 'urgencias', 'consulta externa', 'quirófano', 'quirofano', 'farmacia', 'endocrinología', 'endocrinologia', 'adultos', 'reproducción', 'reproduccion', 'genética', 'genetica', 'infectología', 'infectologia', 'cardiología', 'cardiologia', 'neurología', 'neurologia'];
         for (const line of cleanedLines) {
-            if (line.toLowerCase().includes('coordinación') || line.toLowerCase().includes('hospitalaria')) continue;
-            for (const kw of serviceKeywords) {
-                if (line.toLowerCase().includes(kw)) {
-                    result.servicio = line.trim().toUpperCase();
-                    break;
-                }
+            if (/\b(?:coordinacion|coordinación|hospitalaria|farmacia|instituto|direccion|dirección|subdireccion|subdirección)\b/i.test(line)) continue;
+            const service = normalizeOcrService(line, false);
+            if (service) {
+                result.servicio = service;
+                break;
             }
-            if (result.servicio) break;
         }
     }
-
     // Exclude list for Lote search
     const excludeList = ['paciente', 'medico', 'servicio', 'expediente', 'folio', 'clave', 'medicamento', 'dosis', 'via', 'intervalo', 'duracion', 'observaciones', 'receta', 'cedula', 'profesional', 'firma', 'instituto', 'espinosa'];
     if (result.paciente) excludeList.push(...result.paciente.split(/\s+/));
