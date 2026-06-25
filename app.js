@@ -2082,7 +2082,23 @@ function parsePrescriptionText(text) {
         expCandidates.sort((a, b) => b.score - a.score);
         result.expediente = expCandidates[0].value;
     }
-    const patientNameReject = /\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|observaciones|surtido|receta|folio|expediente|curp|fecha|edad|cedula|cédula|firma|instituto|hospital|farmacia|telefono|teléfono|tableta|comprimido|capsula|cápsula|crema|vaginal|oral|intravaginal|aplicar|tomar|acido|ácido|estrogenos|estrógenos|conjugados|alendronico|alendrónico|mg|ml|mcg|ui|caja|cajas|dias|días)\b/i;
+    const patientNameReject = /\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|observaciones|surtido|receta|folio|expediente|curp|fecha|edad|cedula|cédula|firma|instituto|hospital|farmacia|telefono|teléfono|tableta|comprimido|capsula|cápsula|crema|vaginal|oral|intravaginal|aplicar|tomar|acido|ácido|estrogenos|estrógenos|conjugados|alendronico|alendrónico|mg|ml|mcg|ui|caja|cajas|dias|días|region|doctor|doctora|name|nombre|servicio|médico|medico|medica|médica|oncolog|gineco|obstetric|climaterio|psiquiatr|psicolog|urolog|colposcop|endocrino|hematolog|ematolog|dermatolog)\b/i;
+
+    function isRegionMarker(line) {
+        return /^REGION\s+/i.test(String(line || '').trim());
+    }
+
+    function getRegionPayloadLines(labelPattern, maxLines = 8) {
+        const idx = rawLines.findIndex(line => labelPattern.test(line));
+        if (idx === -1) return { idx, lines: [] };
+        const lines = [];
+        for (let i = idx + 1; i < cleanedLines.length && lines.length < maxLines; i++) {
+            if (isRegionMarker(rawLines[i]) || isRegionMarker(cleanedLines[i])) break;
+            const line = cleanedLines[i].trim();
+            if (line) lines.push(line);
+        }
+        return { idx, lines };
+    }
 
     function isLikelyPatientName(value) {
         const name = cleanPersonName(value);
@@ -2107,8 +2123,10 @@ function parsePrescriptionText(text) {
     }
 
     let patientLine = '';
-    const patientNameIdx = rawLines.findIndex(line => /REGION\s+patient-name/i.test(line));
-    const patientNameLines = patientNameIdx === -1 ? [] : cleanedLines.slice(patientNameIdx + 1, patientNameIdx + 4);
+    const patientNameRegion = getRegionPayloadLines(/REGION\s+patient-name$/i, 6);
+    const patientNameLowerRegion = getRegionPayloadLines(/REGION\s+patient-name-lower$/i, 6);
+    const patientNameIdx = patientNameRegion.idx !== -1 ? patientNameRegion.idx : patientNameLowerRegion.idx;
+    const patientNameLines = [...patientNameRegion.lines, ...patientNameLowerRegion.lines];
     for (const line of patientNameLines) {
         const candidate = line.replace(/^.*(?:PAC[I1]EN[T1]E|NOMBR[E3]|PAC[I1]EN|P\s*A\s*C\s*I\s*E\s*N\s*T\s*E)[:\s\-]+/i, '').trim();
         if (isLikelyPatientName(candidate)) {
@@ -2119,15 +2137,20 @@ function parsePrescriptionText(text) {
 
     // Method A: Find line with PACIENTE/NOMBRE label (handling OCR typos)
     if (!patientLine) for (const line of cleanedLines) {
+        if (isRegionMarker(line)) continue;
         if (/^.*(?:PAC[I1]EN|NOMBR|PAC\s*I\s*E|P\s*A\s*C\s*I)/i.test(line)) {
-            patientLine = line;
-            break;
+            const candidate = line.replace(/^.*(?:PAC[I1]EN[T1]E|NOMBR[E3]|PAC[I1]EN|P\s*A\s*C\s*I\s*E\s*N\s*T\s*E)[:\s\-]+/i, '').trim();
+            if (isLikelyPatientName(candidate)) {
+                patientLine = line;
+                break;
+            }
         }
     }
     // Method B: Fallback to the first non-empty line after FOLIO/EXPEDIENTE line (position is always the same)
     if (!patientLine && folioLineIdx !== -1) {
         for (let k = folioLineIdx + 1; k < cleanedLines.length; k++) {
             const fallbackName = cleanedLines[k].trim();
+            if (isRegionMarker(fallbackName)) break;
             if (/\b(?:clave|medicamento|dosis|via|vía|intervalo|duracion|duración|observaciones)\b/i.test(fallbackName)) break;
             if (isLikelyPatientName(fallbackName)) {
                 patientLine = fallbackName;
@@ -2162,6 +2185,7 @@ function parsePrescriptionText(text) {
     if (!result.paciente) {
         const nameKeywordsToAvoid = ['dr', 'dra', 'médico', 'medico', 'instituto', 'servicio', 'receta', 'folio', 'expediente', 'fecha', 'edad', 'curp', 'cédula', 'cedula', 'firma', 'nacional', 'perinatal', 'coordinación', 'coordinacion', 'subdirección', 'subdireccion', 'departamento', 'depto', 'dirección', 'direccion', 'hospital', 'farmacia', 'avenida', 'calle', 'colonia', 'teléfono', 'telefono'];
         for (const line of cleanedLines) {
+            if (isRegionMarker(line)) continue;
             const cleanLine = line.trim().toUpperCase();
             if (cleanLine.length >= 10 && cleanLine.length <= 50 && /^([A-ZÁÉÍÓÚÑ]+\s*)+$/.test(cleanLine)) {
                 const words = cleanLine.split(/\s+/);
@@ -2198,8 +2222,9 @@ function parsePrescriptionText(text) {
 
     // Doctor (supporting medico/a labels and regional OCR)
     let docLineIdx = -1;
-    const doctorRegionIdx = rawLines.findIndex(line => /REGION\s+doctor-name/i.test(line));
-    const doctorRegionLines = doctorRegionIdx === -1 ? [] : cleanedLines.slice(doctorRegionIdx + 1, doctorRegionIdx + 5);
+    const doctorRegion = getRegionPayloadLines(/REGION\s+doctor-name$/i, 8);
+    const doctorRegionIdx = doctorRegion.idx;
+    const doctorRegionLines = doctorRegion.lines;
     for (const line of doctorRegionLines) {
         const doctorName = extractDoctorNameCandidate(line);
         if (doctorName) {
