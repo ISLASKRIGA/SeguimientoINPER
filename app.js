@@ -2016,32 +2016,65 @@ function parsePrescriptionText(text) {
         }
     }
 
-    // Expediente (9 digits typically, with optional spaces, or INP-XXXX)
-    const expRegex = /(?:expediente|exp\.?|no\.?\s*exp)[:\s]+([A-Z0-9-]{5,15})|\b([0-9OI]{3}\s*[0-9OI\s]{3}\s*[0-9OI]{3})\b/i;
-    for (const line of rawLines) {
-        const match = line.match(expRegex);
-        if (match) {
-            let val = (match[1] || match[2]).replace(/\s+/g, '').trim();
-            val = normalizeOcrNumber(val);
-            result.expediente = val;
-            break;
+    // Expediente: prefer labeled/header regions and reject folios, claves, cedulas and dates.
+    function normalizeExpCandidate(value) {
+        const digits = compactOcrDigits(value);
+        if (!/^\d{8,10}$/.test(digits)) return '';
+        if (digits.startsWith('010')) return ''; // drug key, not patient expediente
+        if (/^20\d{6,8}$/.test(digits)) return ''; // dates/folios often start with year
+        if (result.folio && compactOcrDigits(result.folio).includes(digits)) return '';
+        return digits;
+    }
+
+    function collectExpCandidates(lines, baseScore = 0) {
+        const candidates = [];
+        const badContext = /\b(?:folio|receta|clave|medicamento|dosis|caducidad|cad|lote|cedula|c[eé]dula|telefono|tel[eé]fono|edad|fecha)\b/i;
+
+        for (const line of lines) {
+            const hasExpLabel = /\b(?:expediente|exp\.?|no\.?\s*exp)\b/i.test(line);
+            const chunks = [];
+            const labeled = line.match(/(?:expediente|exp\.?|no\.?\s*exp)\D{0,14}([0-9OIL|S][0-9OIL|S\s.-]{6,18}[0-9OIL|S])/i);
+            if (labeled) chunks.push(labeled[1]);
+
+            const numericChunks = line.match(/[0-9OIL|S][0-9OIL|S\s.-]{6,18}[0-9OIL|S]/ig) || [];
+            chunks.push(...numericChunks);
+
+            for (const chunk of chunks) {
+                const value = normalizeExpCandidate(chunk);
+                if (!value) continue;
+
+                let score = baseScore;
+                if (hasExpLabel) score += 40;
+                if (value.length === 9) score += 18;
+                if (value.endsWith('010')) score += 16;
+                if (badContext.test(line) && !hasExpLabel) score -= 35;
+                candidates.push({ value, score });
+            }
         }
+
+        return candidates;
     }
 
-    if (!result.expediente) {
-        const topRightIdx = rawLines.findIndex(line => /REGION\s+top-right-expediente/i.test(line));
-        const topRightLines = topRightIdx === -1 ? [] : rawLines.slice(topRightIdx + 1, topRightIdx + 8);
-        const candidates = topRightLines
-            .map(line => compactOcrDigits(line))
-            .filter(num => /^\d{9}$/.test(num) || /^\d{8,10}$/.test(num));
-        const likelyExp = candidates.find(num => num.endsWith('010')) || candidates[0];
-        if (likelyExp) result.expediente = likelyExp;
-    }
+    const topRightIdx = rawLines.findIndex(line => /REGION\s+top-right-expediente/i.test(line));
+    const topRightLines = topRightIdx === -1 ? [] : rawLines.slice(topRightIdx + 1, topRightIdx + 8);
+    const patientHeaderIdx = rawLines.findIndex(line => /REGION\s+patient-header/i.test(line));
+    const patientHeaderLines = patientHeaderIdx === -1 ? [] : rawLines.slice(patientHeaderIdx + 1, patientHeaderIdx + 6);
 
+    const expCandidates = [
+        ...collectExpCandidates(topRightLines, 35),
+        ...collectExpCandidates(patientHeaderLines, 25),
+        ...collectExpCandidates(rawLines.filter(line => /\b(?:expediente|exp\.?|no\.?\s*exp)\b/i.test(line)), 20),
+        ...collectExpCandidates(rawLines, -15)
+    ];
+
+    if (expCandidates.length > 0) {
+        expCandidates.sort((a, b) => b.score - a.score);
+        result.expediente = expCandidates[0].value;
+    }
     // Paciente Name (using relative positioning and label-stripping)
     let folioLineIdx = -1;
     for (let i = 0; i < rawLines.length; i++) {
-        if (rawLines[i].match(folioRegex) || rawLines[i].match(expRegex)) {
+        if (rawLines[i].match(folioRegex) || /\b(?:expediente|exp\.?|no\.?\s*exp)\b/i.test(rawLines[i])) {
             folioLineIdx = i;
             break;
         }
