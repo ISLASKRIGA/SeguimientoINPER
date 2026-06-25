@@ -713,11 +713,31 @@ function normalizeClave(value) {
     return twelve.slice(0, 3) + '.' + twelve.slice(3, 6) + '.' + twelve.slice(6, 10) + '.' + twelve.slice(10, 12);
 }
 
+function getOcrOptions(stepText, label = 'Leyendo receta') {
+    return {
+        logger: (message) => {
+            if (!stepText || !message) return;
+
+            const progress = typeof message.progress === 'number'
+                ? ' ' + Math.round(message.progress * 100) + '%'
+                : '';
+            const status = String(message.status || '').replace(/_/g, ' ');
+
+            if (status.includes('loading')) {
+                stepText.innerText = 'Cargando motor de OCR' + progress + '...';
+            } else if (status.includes('recognizing')) {
+                stepText.innerText = label + progress + '...';
+            } else if (status) {
+                stepText.innerText = status.charAt(0).toUpperCase() + status.slice(1) + progress + '...';
+            }
+        }
+    };
+}
 async function recognizeRegionText(dataUrl, region, label, options = {}) {
     const cropped = await cropImageRegionForOCR(dataUrl, region, options);
     const response = await Tesseract.recognize(
         cropped,
-        options.lang || 'spa+eng',
+        options.lang || 'eng',
         {
             ...getOcrOptions(null, label),
             tessedit_pageseg_mode: options.psm || '6',
@@ -775,12 +795,14 @@ async function recognizePrescription(dataUrl, stepText) {
     const processed = await preprocessImageForOCR(dataUrl, stepText);
     const regionalText = await recognizePrescriptionRegions(dataUrl, stepText);
     const attempts = [
+        { image: processed, label: "Leyendo receta optimizada", lang: 'eng' },
         { image: processed, label: "Leyendo receta optimizada", lang: 'spa+eng' },
         { image: processed, label: "Leyendo receta optimizada", lang: 'spa' },
-        { image: dataUrl, label: "Validando lectura original", lang: 'spa+eng' },
-        { image: dataUrl, label: "Validando lectura original", lang: 'eng' }
+        { image: dataUrl, label: "Validando lectura original", lang: 'eng' },
+        { image: dataUrl, label: "Validando lectura original", lang: 'spa+eng' }
     ];
     const results = [];
+    const failedAttempts = [];
 
     for (const attempt of attempts) {
         try {
@@ -798,6 +820,7 @@ async function recognizePrescription(dataUrl, stepText) {
             });
         } catch (err) {
             console.warn('OCR attempt failed:', attempt.lang, err);
+            failedAttempts.push({ lang: attempt.lang, message: err?.message || String(err) });
         }
     }
 
@@ -807,7 +830,8 @@ async function recognizePrescription(dataUrl, stepText) {
     }
 
     if (results.length === 0) {
-        throw new Error('No OCR attempt completed successfully.');
+        const detail = failedAttempts.map(f => f.lang + ': ' + f.message).join(' | ');
+        throw new Error(detail || 'No OCR attempt completed successfully.');
     }
 
     return results.sort((a, b) => b.score - a.score)[0];
@@ -850,7 +874,12 @@ async function handleOCRUpload(e) {
         console.error("OCR Error:", err);
         if (loader) loader.classList.remove('active');
         openOcrModal(createEmptyOcrResult());
-        alert("No se pudo completar el OCR. Puede capturar los datos manualmente o intentar con una foto mas enfocada, plana y con buena luz.");
+        const message = err?.message || '';
+        const isNetworkLike = /fetch|network|load|lang|worker|script|cdn|failed/i.test(message);
+        const hint = isNetworkLike
+            ? 'No se pudo cargar el motor o los archivos de idioma de OCR. Revise la conexion a internet y vuelva a intentar.'
+            : 'Puede capturar los datos manualmente o intentar con una foto mas enfocada, plana y con buena luz.';
+        showAlert('No se pudo completar el OCR. ' + hint, 'yellow');
     } finally {
         if (ocrUpload) ocrUpload.value = '';
     }
