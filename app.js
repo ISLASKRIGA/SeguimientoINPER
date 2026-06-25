@@ -752,6 +752,7 @@ async function recognizePrescriptionRegions(dataUrl, stepText) {
     if (stepText) stepText.innerText = 'Leyendo zonas clave del formato INPer...';
     const regions = [
         { label: 'top-right-expediente', region: { x: 0.62, y: 0.135, w: 0.34, h: 0.125 }, psm: '6', scale: 3.2 },
+        { label: 'patient-name', region: { x: 0.055, y: 0.185, w: 0.36, h: 0.055 }, psm: '7', scale: 3.6 },
         { label: 'patient-header', region: { x: 0.04, y: 0.215, w: 0.92, h: 0.085 }, psm: '6', scale: 2.8 },
         { label: 'table-full', region: { x: 0.045, y: 0.285, w: 0.91, h: 0.28 }, psm: '6', scale: 2.5 },
         { label: 'table-medicamento-column', region: { x: 0.10, y: 0.285, w: 0.24, h: 0.28 }, psm: '6', scale: 3.0 },
@@ -2087,7 +2088,11 @@ function parsePrescriptionText(text) {
         if (/\d/.test(name) || patientNameReject.test(name)) return false;
         const words = name.split(/\s+/).filter(Boolean);
         if (words.length < 2 || words.length > 6) return false;
-        return words.every(word => word.length >= 2 || /^(DE|LA|EL|Y)$/.test(word));
+        const contentWords = words.filter(word => !/^(DE|DEL|LA|LAS|LOS|EL|Y)$/.test(word));
+        if (contentWords.length < 2) return false;
+        if (contentWords.filter(word => word.length >= 3).length < 2) return false;
+        if (!contentWords.some(word => word.length >= 4)) return false;
+        return words.every(word => word.length >= 2 || /^(Y)$/.test(word));
     }
     // Paciente Name (using relative positioning and label-stripping)
     let folioLineIdx = -1;
@@ -2099,8 +2104,18 @@ function parsePrescriptionText(text) {
     }
 
     let patientLine = '';
+    const patientNameIdx = rawLines.findIndex(line => /REGION\s+patient-name/i.test(line));
+    const patientNameLines = patientNameIdx === -1 ? [] : cleanedLines.slice(patientNameIdx + 1, patientNameIdx + 4);
+    for (const line of patientNameLines) {
+        const candidate = line.replace(/^.*(?:PAC[I1]EN[T1]E|NOMBR[E3]|PAC[I1]EN|P\s*A\s*C\s*I\s*E\s*N\s*T\s*E)[:\s\-]+/i, '').trim();
+        if (isLikelyPatientName(candidate)) {
+            patientLine = line;
+            break;
+        }
+    }
+
     // Method A: Find line with PACIENTE/NOMBRE label (handling OCR typos)
-    for (const line of cleanedLines) {
+    if (!patientLine) for (const line of cleanedLines) {
         if (/^.*(?:PAC[I1]EN|NOMBR|PAC\s*I\s*E|P\s*A\s*C\s*I)/i.test(line)) {
             patientLine = line;
             break;
@@ -2149,7 +2164,7 @@ function parsePrescriptionText(text) {
                 const words = cleanLine.split(/\s+/);
                 if (words.length >= 2 && words.length <= 6) {
                     const hasAvoid = nameKeywordsToAvoid.some(kw => cleanLine.toLowerCase().includes(kw));
-                    if (!hasAvoid) {
+                    if (!hasAvoid && isLikelyPatientName(cleanLine)) {
                         result.paciente = cleanLine;
                         break;
                     }
