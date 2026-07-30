@@ -387,6 +387,133 @@ function showAlert(message, type) {
 // Modal Logic
 let currentSurtimientoId = null;
 
+function parseMedicamento(m) {
+    if (typeof m === 'object' && m !== null) {
+        let nombre = m.nombre || m.originalStr || '';
+        let clave = m.clave || m.claveMed || '';
+        let lote = m.lote || '';
+        let caducidad = m.caducidad || m.cad || '';
+        let duracion = m.duracion || m.diasCobertura || '';
+        let estatus = m.estatus || '';
+        let dosis = m.dosis || '';
+        let frecuencia = m.frecuencia || '';
+        let cantidad = m.cantidad || '';
+
+        const sourceStr = m.originalStr || nombre;
+        if (sourceStr && sourceStr.includes('[')) {
+            const parsed = parseMedicamentoString(sourceStr);
+            nombre = parsed.nombre || nombre;
+            clave = clave || parsed.clave;
+            lote = lote || parsed.lote;
+            caducidad = caducidad || parsed.caducidad;
+            duracion = duracion || parsed.duracion;
+            estatus = estatus || parsed.estatus;
+            dosis = dosis || parsed.dosis;
+            cantidad = cantidad || parsed.cantidad;
+        }
+
+        return { nombre, clave, lote, caducidad, duracion, estatus, dosis, frecuencia, cantidad };
+    } else if (typeof m === 'string') {
+        return parseMedicamentoString(m);
+    }
+    return { nombre: String(m || ''), clave: '', lote: '', caducidad: '', duracion: '', estatus: '', dosis: '', frecuencia: '', cantidad: '' };
+}
+
+function parseMedicamentoString(str) {
+    if (!str) return { nombre: '', clave: '', lote: '', caducidad: '', duracion: '', estatus: '', dosis: '', frecuencia: '', cantidad: '' };
+
+    const claveMatch = str.match(/\[Clave:\s*([^\]]+)\]/i);
+    const loteMatch = str.match(/\[Lote:\s*([^\]]+)\]/i);
+    const cadMatch = str.match(/\[Cad(?:ucidad)?:\s*([^\]]+)\]/i);
+    const durMatch = str.match(/\[Duraci[oó]n:\s*([^\]]+)\]/i);
+    const estatusMatch = str.match(/\[Estatus:\s*([^\]]+)\]/i);
+    const dosisMatch = str.match(/\[Dosis:\s*([^\]]+)\]/i);
+    const cantMatch = str.match(/\[Cantidad:\s*([^\]]+)\]/i);
+
+    let nombre = str.replace(/\[[^\]]+\]/g, '').trim();
+
+    return {
+        nombre: nombre,
+        clave: claveMatch ? claveMatch[1].trim() : '',
+        lote: loteMatch ? loteMatch[1].trim() : '',
+        caducidad: cadMatch ? cadMatch[1].trim() : '',
+        duracion: durMatch ? durMatch[1].trim() : '',
+        estatus: estatusMatch ? estatusMatch[1].trim() : '',
+        dosis: dosisMatch ? dosisMatch[1].trim() : '',
+        cantidad: cantMatch ? cantMatch[1].trim() : ''
+    };
+}
+
+function renderMedicamentosTable(medicamentosList) {
+    if (!Array.isArray(medicamentosList) || medicamentosList.length === 0) {
+        return `<p style="color:var(--text-muted); font-style:italic;">No hay medicamentos registrados.</p>`;
+    }
+
+    const parsedList = medicamentosList.map(m => parseMedicamento(m));
+
+    const hasClave = parsedList.some(m => m.clave);
+    const hasLote = parsedList.some(m => m.lote);
+    const hasCad = parsedList.some(m => m.caducidad);
+    const hasDuracion = parsedList.some(m => m.duracion);
+    const hasEstatus = parsedList.some(m => m.estatus);
+
+    const rowsHTML = parsedList.map(m => {
+        let estatusBadge = '-';
+        if (m.estatus) {
+            let bg = '#e0f2fe';
+            let color = '#0284c7';
+            if (m.estatus.includes('Completo') || m.estatus === 'C' || m.estatus.startsWith('C -')) {
+                bg = '#dcfce7';
+                color = '#15803d';
+            } else if (m.estatus.includes('EPI') || m.estatus.includes('parcial') || m.estatus.includes('Observad')) {
+                bg = '#fef3c7';
+                color = '#b45309';
+            }
+            estatusBadge = `<span style="display:inline-block; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:800; background:${bg}; color:${color};">${m.estatus}</span>`;
+        }
+
+        let dosisInfo = [];
+        if (m.dosis) dosisInfo.push(m.dosis);
+        if (m.frecuencia) dosisInfo.push(m.frecuencia);
+        if (m.cantidad) dosisInfo.push(`Cant: ${m.cantidad}`);
+        const dosisText = dosisInfo.length > 0 ? dosisInfo.join(' • ') : '-';
+
+        return `
+            <tr>
+                <td style="padding: 10px 12px; font-weight: 700; color: var(--text-main); vertical-align: middle;">
+                    <div style="font-size: 13.5px; line-height: 1.3;">${m.nombre}</div>
+                    ${dosisText !== '-' ? `<div style="font-size: 11px; color: var(--text-muted); margin-top:2px;">${dosisText}</div>` : ''}
+                </td>
+                ${hasClave ? `<td style="padding: 10px 12px; font-size: 12px; font-family: monospace; color: #475569; vertical-align: middle; white-space: nowrap;">${m.clave || '-'}</td>` : ''}
+                ${hasLote ? `<td style="padding: 10px 12px; font-size: 12px; font-weight: 600; color: var(--text-main); vertical-align: middle; white-space: nowrap;">${m.lote || '-'}</td>` : ''}
+                ${hasCad ? `<td style="padding: 10px 12px; font-size: 12px; font-weight: 600; color: var(--text-main); vertical-align: middle; white-space: nowrap;">${m.caducidad || '-'}</td>` : ''}
+                ${hasDuracion ? `<td style="padding: 10px 12px; font-size: 12px; font-weight: 600; color: var(--text-main); vertical-align: middle; white-space: nowrap;">${m.duracion || '-'}</td>` : ''}
+                ${hasEstatus ? `<td style="padding: 10px 12px; vertical-align: middle; white-space: nowrap;">${estatusBadge}</td>` : ''}
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div class="meds-table-container">
+            <table class="meds-modal-table">
+                <thead>
+                    <tr>
+                        <th>Medicamento</th>
+                        ${hasClave ? `<th>Clave</th>` : ''}
+                        ${hasLote ? `<th>Lote</th>` : ''}
+                        ${hasCad ? `<th>Caducidad</th>` : ''}
+                        ${hasDuracion ? `<th>Duración</th>` : ''}
+                        ${hasEstatus ? `<th>Estatus</th>` : ''}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHTML}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function openSurtimientoModal(id) {
     currentSurtimientoId = id;
     const r = db.recetas.find(x => x.id == id);
@@ -399,9 +526,7 @@ function openSurtimientoModal(id) {
         ${r.servicio ? `<div class="info-row"><span class="info-label">Servicio:</span> <span class="info-val">${r.servicio}</span></div>` : ''}
         <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border);">
         <h4 style="margin-bottom:10px;">Prescripción a entregar:</h4>
-        <ul style="padding-left:15px; color:var(--primary); font-weight:500;">
-            ${r.medicamentos.map(m => `<li>${typeof m === 'string' ? m : m.originalStr || m.nombre}</li>`).join('')}
-        </ul>
+        ${renderMedicamentosTable(r.medicamentos)}
     `;
     document.getElementById('modal-details').innerHTML = detailsHTML;
     // Show action buttons and notes (it's an active recipe)
@@ -427,9 +552,7 @@ function openDetalleModal(id) {
         <div class="info-row"><span class="info-label">Estado:</span> <span class="info-val" style="color:${estadoColor}; font-weight:800;">${r.estado}</span></div>
         <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border);">
         <h4 style="margin-bottom:10px;">Medicamentos:</h4>
-        <ul style="padding-left:15px; color:var(--primary); font-weight:500;">
-            ${r.medicamentos.map(m => `<li>${typeof m === 'string' ? m : m.originalStr || m.nombre}</li>`).join('')}
-        </ul>
+        ${renderMedicamentosTable(r.medicamentos)}
         ${r.alerta_msg ? `<div style="margin-top:12px; padding:10px; background:#fff8e1; border-radius:8px; border-left:3px solid var(--orange); font-size:13px;"><b>Observaciones:</b> ${r.alerta_msg}</div>` : ''}
     `;
     document.getElementById('modal-details').innerHTML = detailsHTML;
@@ -756,8 +879,8 @@ async function recognizePrescriptionRegions(dataUrl, stepText) {
         { label: 'patient-bold-name-mid', region: { x: 0.105, y: 0.194, w: 0.38, h: 0.05 }, psm: '7', scale: 5.4, threshold: 160, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ ' },
         { label: 'table-full', region: { x: 0.045, y: 0.285, w: 0.91, h: 0.28 }, psm: '6', scale: 2.5 },
         { label: 'table-medicamento-column', region: { x: 0.10, y: 0.285, w: 0.24, h: 0.28 }, psm: '6', scale: 3.0 },
-        { label: 'doctor-label-line-mid', region: { x: 0.045, y: 0.515, w: 0.46, h: 0.07 }, psm: '6', scale: 4.2, threshold: 164, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ/: ' },
-        { label: 'service-doctor-band', region: { x: 0.04, y: 0.50, w: 0.76, h: 0.105 }, psm: '6', scale: 2.8 }
+        { label: 'doctor-label-line-mid', region: { x: 0.45, y: 0.56, w: 0.51, h: 0.14 }, psm: '6', scale: 4.2, threshold: 164, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ/: ' },
+        { label: 'service-doctor-band', region: { x: 0.04, y: 0.50, w: 0.92, h: 0.20 }, psm: '6', scale: 2.8 }
     ];
     const fallbackRegions = [
         { label: 'patient-label-line-soft', region: { x: 0.035, y: 0.176, w: 0.43, h: 0.06 }, psm: '6', scale: 4.8, threshold: 148, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ: ' },
@@ -766,8 +889,8 @@ async function recognizePrescriptionRegions(dataUrl, stepText) {
         { label: 'patient-name', region: { x: 0.055, y: 0.185, w: 0.36, h: 0.055 }, psm: '7', scale: 3.6 },
         { label: 'patient-name-lower', region: { x: 0.04, y: 0.225, w: 0.42, h: 0.055 }, psm: '7', scale: 3.8 },
         { label: 'patient-header', region: { x: 0.04, y: 0.215, w: 0.92, h: 0.085 }, psm: '6', scale: 2.8 },
-        { label: 'doctor-label-line-soft', region: { x: 0.045, y: 0.49, w: 0.46, h: 0.07 }, psm: '6', scale: 4.2, threshold: 150, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ/: ' },
-        { label: 'doctor-name', region: { x: 0.055, y: 0.505, w: 0.43, h: 0.075 }, psm: '6', scale: 3.4 }
+        { label: 'doctor-label-line-soft', region: { x: 0.45, y: 0.54, w: 0.51, h: 0.14 }, psm: '6', scale: 4.2, threshold: 150, whitelist: ' ABCDEFGHIJKLMNOPQRSTUVWXYZ/: ' },
+        { label: 'doctor-name', region: { x: 0.48, y: 0.56, w: 0.48, h: 0.12 }, psm: '6', scale: 3.4 }
     ];
     const output = [];
 

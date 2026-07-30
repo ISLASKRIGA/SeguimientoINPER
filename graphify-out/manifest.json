@@ -1,0 +1,27 @@
+{
+  "app.js": {
+    "mtime": 1782422803.0780046,
+    "ast_hash": "2ae4ecbcc5d3588edf9c74b44097363c",
+    "semantic_hash": "2ae4ecbcc5d3588edf9c74b44097363c"
+  },
+  "schema.sql": {
+    "mtime": 1782233773.493093,
+    "ast_hash": "c22d34f5bac47969be9426ce581f4c9f",
+    "semantic_hash": "c22d34f5bac47969be9426ce581f4c9f"
+  },
+  "temp_excel_out.json": {
+    "mtime": 1776891993.893008,
+    "ast_hash": "334155bf83b10a543c451d6b9a86cfa3",
+    "semantic_hash": "334155bf83b10a543c451d6b9a86cfa3"
+  },
+  "graphify-out/converted/Formato pacientwas_db09bf26.md": {
+    "mtime": 1784053718.6425703,
+    "ast_hash": "840977af06ede941974caad6baced363",
+    "semantic_hash": "840977af06ede941974caad6baced363"
+  },
+  "index.html": {
+    "mtime": 1782409555.9417865,
+    "ast_hash": "ca561021d17d0fbdc8922564d85a8942",
+    "semantic_hash": "ca561021d17d0fbdc8922564d85a8942"
+  }
+}
